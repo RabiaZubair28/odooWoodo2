@@ -64,3 +64,5 @@ class HrLeave(models.Model):
                     "Please select a leave type allowed for this employee."
                 )
     
+
+
