@@ -8,7 +8,9 @@
     'depends': ['hr','hr_holidays','hrmis_user_profiles_updates'],  # Important: extend the built-in module
     'data': [
         'data/leave_type_data.xml',  # optional
+        'views/hr_holidays_views.xml',
     ],
+
     'installable': True,
     'application': False,
     'license': 'LGPL-3',
