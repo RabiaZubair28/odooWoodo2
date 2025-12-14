@@ -2,28 +2,28 @@
 <odoo>
 
     <!-- Casual Leave (all genders) -->
-    <record id="leave_type_casual" model="hr.leave.type">
+    <!-- <record id="leave_type_casual" model="hr.leave.type">
         <field name="name">Casual Leave</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Earned Leave With Pay -->
-    <record id="leave_type_earned_pay" model="hr.leave.type">
+    <!-- <record id="leave_type_earned_pay" model="hr.leave.type">
         <field name="name">Earned Leave With Pay</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Leave On Half Pay -->
-    <record id="leave_type_half_pay" model="hr.leave.type">
+    <!-- <record id="leave_type_half_pay" model="hr.leave.type">
         <field name="name">Leave On Half Pay</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Leave Without Pay (EOL) -->
-    <record id="leave_type_eol" model="hr.leave.type">
+    <!-- <record id="leave_type_eol" model="hr.leave.type">
         <field name="name">Leave Without Pay (EOL)</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Maternity Leave (female only) -->
     <record id="leave_type_maternity" model="hr.leave.type">
@@ -44,39 +44,39 @@
     </record>
 
     <!-- Special Leave (Accident/Injury) -->
-    <record id="leave_type_special_incident" model="hr.leave.type">
+    <!-- <record id="leave_type_special_incident" model="hr.leave.type">
         <field name="name">Special Leave (Accident/Injury)</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Special Leave (Quarantine) -->
-    <record id="leave_type_special_quarantine" model="hr.leave.type">
+    <!-- <record id="leave_type_special_quarantine" model="hr.leave.type">
         <field name="name">Special Leave (Quarantine)</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Study Leave -->
-    <record id="leave_type_study" model="hr.leave.type">
+    <!-- <record id="leave_type_study" model="hr.leave.type">
         <field name="name">Study Leave</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Leave Preparatory to Retirement (LPR) -->
-    <record id="leave_type_lpr" model="hr.leave.type">
+    <!-- <record id="leave_type_lpr" model="hr.leave.type">
         <field name="name">Leave Preparatory to Retirement (LPR)</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Medical Leave (Long Term) -->
-    <record id="leave_type_medical_long" model="hr.leave.type">
+    <!-- <record id="leave_type_medical_long" model="hr.leave.type">
         <field name="name">Medical Leave (Long Term)</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
     <!-- Fitness To Resume Duty -->
-    <record id="leave_type_fitness" model="hr.leave.type">
+    <!-- <record id="leave_type_fitness" model="hr.leave.type">
         <field name="name">Fitness To Resume Duty</field>
         <field name="allowed_gender">all</field>
-    </record>
+    </record> -->
 
 </odoo>

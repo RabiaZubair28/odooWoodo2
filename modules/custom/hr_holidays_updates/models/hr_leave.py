@@ -4,7 +4,9 @@ from odoo.exceptions import ValidationError
 class HrLeave(models.Model):
     _inherit = 'hr.leave'
 
-    @api.onchange('employee_id')
+    hrmis_profile_id = fields.Many2one('hrmis.user.profile', string="HRMIS Profile")
+
+    @api.onchange('employee_id', 'hrmis_profile_id', 'holiday_status_id')
     def _onchange_employee_filter_leave_type(self):
         if not self.employee_id:
             return {'domain': {'holiday_status_id': []}}
@@ -16,15 +18,13 @@ class HrLeave(models.Model):
 
         gender = profile.gender
 
-        # Get leave types
-        leave_type_model = self.env['hr.leave.type']
-        if gender == 'male':
-            maternity = leave_type_model.search([('name', '=', 'Maternity Leave')], limit=1)
-            domain = [('id', '!=', maternity.id)] if maternity else []
-        elif gender == 'female':
-            paternity = leave_type_model.search([('name', '=', 'Paternity Leave')], limit=1)
-            domain = [('id', '!=', paternity.id)] if paternity else []
+        if gender in ('male', 'female','Female','Male'):
+            domain = [('allowed_gender', '=', 'male')]
         else:
-            domain = []
+            domain = [('allowed_gender', '=', 'female')]
 
         return {'domain': {'holiday_status_id': domain}}
+    
+
+
+
