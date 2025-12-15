@@ -171,38 +171,157 @@ class HrLeave(models.Model):
                     "from an approved Maternity or Medical leave."
                 )
 
-    @api.constrains('holiday_status_id', 'attachment_ids', 'state')
-    def _check_supporting_documents_required(self):
+    def _vals_include_any_attachment(self, vals):
+        """
+        Detect attachments being added in the same create/write call.
+        This avoids false negatives where constraints run before attachments are linked.
+        """
+        if not vals:
+            return False
+
+        # Explicit attachment fields
+        for key in ('supported_attachment_ids', 'attachment_ids', 'message_main_attachment_id'):
+            if key not in vals:
+                continue
+            v = vals.get(key)
+            if key == 'message_main_attachment_id':
+                return bool(v)
+
+            # m2m/o2m command list
+            if isinstance(v, (list, tuple)):
+                for cmd in v:
+                    if not isinstance(cmd, (list, tuple)) or not cmd:
+                        continue
+                    op = cmd[0]
+                    # (6, 0, [ids]) set
+                    if op == 6 and len(cmd) >= 3 and cmd[2]:
+                        return True
+                    # (4, id) link
+                    if op == 4 and len(cmd) >= 2 and cmd[1]:
+                        return True
+                    # (0, 0, values) create
+                    if op == 0:
+                        return True
+            elif v:
+                return True
+
+        return False
+
+    def _enforce_supporting_documents_required(self, incoming_vals=None):
         """
         Enforce supporting documents for leave types that require them.
+        Implemented as a post create/write check to avoid timing issues with
+        many2many_binary uploads (common with PDFs).
         """
         for leave in self:
             if not leave.holiday_status_id:
                 continue
-            # Only enforce for active workflow states (avoid blocking cancelled/refused history edits)
             if leave.state in ('cancel', 'refuse'):
                 continue
             if not leave.holiday_status_id.support_document:
                 continue
-            # Be permissive in where we count attachments from:
-            # - hr.leave's supporting widget (supported_attachment_ids)
-            # - hr.leave's attachment_ids
-            # - chatter/main attachments
-            # - any ir.attachment whose res_id matches (some setups don’t set res_model consistently)
-            has_attachment = bool(leave.supported_attachment_ids) or bool(leave.attachment_ids) \
-                or bool(leave.message_main_attachment_id) or bool(getattr(leave, 'message_attachment_count', 0))
 
-            if not has_attachment and leave.id:
-                any_res_id_match = self.env['ir.attachment'].sudo().search_count([
-                    ('res_id', '=', leave.id),
-                ])
-                has_attachment = any_res_id_match > 0
+            # If the attachment is being added in the same transaction, accept it.
+            if self._vals_include_any_attachment(incoming_vals or {}):
+                continue
 
-            if not has_attachment:
+            # Otherwise, verify there is at least one persisted attachment linked to this leave.
+            count = self.env['ir.attachment'].sudo().search_count([
+                ('res_model', '=', 'hr.leave'),
+                ('res_id', '=', leave.id),
+            ])
+            if count <= 0:
                 raise ValidationError(
                     "A supporting document is required for this Time Off Type. "
                     "Please attach the required document before submitting."
                 )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        leaves = super().create(vals_list)
+        for leave, vals in zip(leaves, vals_list):
+            leave._enforce_supporting_documents_required(vals)
+        return leaves
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._enforce_supporting_documents_required(vals)
+        return res
+
+    def _period_bounds(self, ref_date, period):
+        ref_date = fields.Date.to_date(ref_date or fields.Date.today())
+        if period == 'month':
+            start = ref_date.replace(day=1)
+            end = start + relativedelta(months=1, days=-1)
+            return start, end
+        if period == 'year':
+            start = ref_date.replace(month=1, day=1)
+            end = ref_date.replace(month=12, day=31)
+            return start, end
+        return None, None
+
+    @api.constrains('employee_id', 'holiday_status_id', 'request_date_from', 'number_of_days', 'state')
+    def _check_max_duration_rules(self):
+        for leave in self:
+            if not leave.employee_id or not leave.holiday_status_id:
+                continue
+            if leave.state in ('cancel', 'refuse'):
+                continue
+
+            lt = leave.holiday_status_id
+            days = leave.number_of_days or 0.0
+            ref = leave.request_date_from or fields.Date.today()
+
+            # Per-request maximum
+            if lt.max_days_per_request and days > lt.max_days_per_request:
+                raise ValidationError(
+                    f"Maximum duration for this Time Off Type is {lt.max_days_per_request} day(s) per request."
+                )
+
+            # Times in service
+            if lt.max_times_in_service:
+                taken_count = self.search_count([
+                    ('employee_id', '=', leave.employee_id.id),
+                    ('holiday_status_id', '=', lt.id),
+                    ('state', 'not in', ('cancel', 'refuse')),
+                    ('id', '!=', leave.id),
+                ]) + 1
+                if taken_count > lt.max_times_in_service:
+                    raise ValidationError(
+                        f"This Time Off Type can be taken at most {lt.max_times_in_service} time(s) in service."
+                    )
+
+            # Per-month maximum (based on request start month)
+            if lt.max_days_per_month:
+                start, end = leave._period_bounds(ref, 'month')
+                used = sum(self.search([
+                    ('employee_id', '=', leave.employee_id.id),
+                    ('holiday_status_id', '=', lt.id),
+                    ('state', 'not in', ('cancel', 'refuse')),
+                    ('id', '!=', leave.id),
+                    ('request_date_from', '>=', start),
+                    ('request_date_from', '<=', end),
+                ]).mapped('number_of_days')) or 0.0
+                if used + days > lt.max_days_per_month:
+                    raise ValidationError(
+                        f"Maximum duration for this Time Off Type is {lt.max_days_per_month} day(s) per month."
+                    )
+
+            # Per-year maximum (based on request start year)
+            if lt.max_days_per_year:
+                start, end = leave._period_bounds(ref, 'year')
+                used = sum(self.search([
+                    ('employee_id', '=', leave.employee_id.id),
+                    ('holiday_status_id', '=', lt.id),
+                    ('state', 'not in', ('cancel', 'refuse')),
+                    ('id', '!=', leave.id),
+                    ('request_date_from', '>=', start),
+                    ('request_date_from', '<=', end),
+                ]).mapped('number_of_days')) or 0.0
+                if used + days > lt.max_days_per_year:
+                    raise ValidationError(
+                        f"Maximum duration for this Time Off Type is {lt.max_days_per_year} day(s) per year."
+                    )
     
 
 

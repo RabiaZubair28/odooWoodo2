@@ -25,6 +25,8 @@
             <!-- Make supporting document mandatory when required by leave type -->
             <xpath expr="//field[@name='supported_attachment_ids']" position="attributes">
                 <attribute name="required">leave_type_support_document and state in ('confirm','validate1')</attribute>
+                <!-- Ensure uploads are included in create/write payloads -->
+                <attribute name="force_save">1</attribute>
             </xpath>
             <xpath expr="//field[@name='supported_attachment_ids']" position="before">
                 <field name="support_document_note" readonly="1"
@@ -70,6 +72,10 @@
                        invisible="not support_document"
                        placeholder="e.g. Medical Certificate / Government Permission Letter"/>
                 <field name="min_service_months"/>
+                <field name="max_days_per_request"/>
+                <field name="max_days_per_month"/>
+                <field name="max_days_per_year"/>
+                <field name="max_times_in_service"/>
             </xpath>
         </field>
     </record>
