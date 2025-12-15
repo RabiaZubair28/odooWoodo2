@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hr_leave_hierarchy_user,hr.leave.hierarchy user,model_hr_leave_hierarchy,hr.group_hr_user,1,0,0,0
+access_hr_leave_hierarchy_admin,hr.leave.hierarchy admin,model_hr_leave_hierarchy,hr.group_hr_manager,1,1,1,1
+
+access_hr_leave_hierarchy_step_user,hr.leave.hierarchy.step user,model_hr_leave_hierarchy_step,hr.group_hr_user,1,0,0,0
+access_hr_leave_hierarchy_step_admin,hr.leave.hierarchy.step admin,model_hr_leave_hierarchy_step,hr.group_hr_manager,1,1,1,1
+
+access_hr_leave_approval_log_user,hr.leave.approval.log user,model_hr_leave_approval_log,hr.group_hr_user,1,0,0,0
+access_hr_leave_approval_log_admin,hr.leave.approval.log admin,model_hr_leave_approval_log,hr.group_hr_manager,1,1,1,1

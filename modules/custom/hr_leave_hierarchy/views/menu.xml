@@ -1,0 +1,10 @@
+<odoo>
+    <menuitem id="menu_hr_leave_hierarchy_root"
+              name="Leave Workflow"
+              parent="hr_holidays.menu_hr_holidays_root"/>
+
+    <menuitem id="menu_hr_leave_hierarchy"
+              name="Leave Hierarchies"
+              parent="menu_hr_leave_hierarchy_root"
+              action="hr_leave_hierarchy.action_hr_leave_hierarchy"/>
+</odoo>
