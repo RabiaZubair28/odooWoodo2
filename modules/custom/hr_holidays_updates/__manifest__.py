@@ -7,7 +7,8 @@
     'category': 'Human Resources/Time Off',
     'depends': ['hr','hr_holidays','hrmis_user_profiles_updates'],  # Important: extend the built-in module
     'data': [
-        'data/leave_type_data.xml',  # optional
+        'data/leave_type_data.xml',
+        'data/support_document_rules.xml',  # optional
         'views/hr_holidays_views.xml',
     ],
 
