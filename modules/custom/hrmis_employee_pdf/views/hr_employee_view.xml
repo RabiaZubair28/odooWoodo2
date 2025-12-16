@@ -1,0 +1,21 @@
+<odoo>
+
+    <record id="view_employee_form_hrmis_pdf" model="ir.ui.view">
+        <field name="name">hr.employee.form.hrmis.pdf</field>
+        <field name="model">hr.employee</field>
+
+        <!-- BASE EMPLOYEE FORM -->
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button
+                    name="%(action_hrmis_employee_pdf)d"
+                    type="action"
+                    string="Print Profile"
+                    class="btn-primary"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

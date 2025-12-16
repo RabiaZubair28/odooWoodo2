@@ -1,0 +1,61 @@
+<odoo>
+
+<template id="report_employee_profile">
+    <t t-call="web.external_layout">
+
+        <t t-foreach="docs" t-as="emp">
+            <main>
+                <div class="page">
+
+                    <h2 style="text-align:center;">Employee Profile</h2>
+                    <hr/>
+
+                    <table style="width:100%; font-size:14px;">
+                        <tr>
+                            <td><strong>Name</strong></td>
+                            <td><span t-esc="emp.name"/></td>
+                        </tr>
+                        <tr>
+                            <td><strong>CNIC</strong></td>
+                            <td><span t-esc="emp.hrmis_cnic"/></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Designation</strong></td>
+                            <td><span t-esc="emp.hrmis_designation"/></td>
+                        </tr>
+                        <tr>
+                            <td><strong>BPS</strong></td>
+                            <td><span t-esc="emp.hrmis_bps"/></td>
+                        </tr>
+                    </table>
+
+                    <br/>
+
+                    <h3>Service History</h3>
+
+                    <table border="1" width="100%" style="border-collapse:collapse;">
+                        <tr>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>District</th>
+                            <th>Facility</th>
+                        </tr>
+
+                        <t t-foreach="emp.hrmis_service_history_ids" t-as="h">
+                            <tr>
+                                <td><span t-esc="h.from_date"/></td>
+                                <td><span t-esc="h.to_date"/></td>
+                                <td><span t-esc="h.district_id.name"/></td>
+                                <td><span t-esc="h.facility_id.name"/></td>
+                            </tr>
+                        </t>
+                    </table>
+
+                </div>
+            </main>
+        </t>
+
+    </t>
+</template>
+
+</odoo>

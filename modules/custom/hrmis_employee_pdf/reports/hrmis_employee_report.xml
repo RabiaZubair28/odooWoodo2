@@ -1,0 +1,17 @@
+<odoo>
+
+    <record id="action_hrmis_employee_pdf" model="ir.actions.report">
+        <field name="name">Employee Profile</field>
+        <field name="model">hr.employee</field>
+        <field name="report_type">qweb-pdf</field>
+
+        <!-- MUST MATCH TEMPLATE ID -->
+        <field name="report_name">hrmis_employee_pdf.report_employee_profile</field>
+        <field name="report_file">hrmis_employee_pdf.report_employee_profile</field>
+
+        <field name="print_report_name">
+            'Employee Profile - %s' % (object.name)
+        </field>
+    </record>
+
+</odoo>
