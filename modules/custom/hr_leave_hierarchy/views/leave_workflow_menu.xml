@@ -1,0 +1,9 @@
+<!-- <odoo>
+    <menuitem
+        id="menu_leave_workflow"
+        name="Leave Workflow Details"
+        parent="hr_holidays.menu_hr_holidays_root"
+        action="action_hr_leave_workflow"
+        sequence="60"
+        groups="hr.group_hr_user,hr.group_hr_manager"/>
+</odoo> -->

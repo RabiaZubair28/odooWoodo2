@@ -1,31 +1,42 @@
 <odoo>
 
-    <record id="view_leave_form_inherit_hierarchy" model="ir.ui.view">
-        <field name="name">hr.leave.form.hierarchy</field>
-        <field name="model">hr.leave</field>
-        <field name="inherit_id" ref="hr_holidays.hr_leave_view_form"/>
-        <field name="arch" type="xml">
-
-            <!-- Add Approval Workflow group at the end of sheet -->
-            <xpath expr="//sheet" position="inside">
-                <group string="Approval Workflow">
-                    <field name="hierarchy_id" readonly="1"/>
-                    <field name="current_step_id" readonly="1"/>
-                </group>
-            </xpath>
-
-            <!-- Add Process Step button at the end of sheet -->
-            <xpath expr="//sheet" position="inside">
-                <group>
-                    <button name="action_process_step"
-                            type="object"
-                            string="Process Step"
-                            class="btn-primary"
-                            modifiers="{'invisible': [('current_step_id','=',False), ('state','!=','confirm')]}"/>
-                </group>
-            </xpath>
-
+    <!-- Custom Time Off Management Action -->
+    <record id="action_hr_leave_management_hierarchy" model="ir.actions.act_window">
+        <field name="name">Time Off Approvals</field>
+        <field name="res_model">hr.leave</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">
+            [
+                "|",
+                ("employee_id.parent_id.user_id", "=", uid),
+                ("is_current_approver", "=", True)
+            ]
         </field>
+        <field name="context">{}</field>
     </record>
+
+    <!-- Parent Menu (already working for you) -->
+    <menuitem id="menu_hr_leave_hierarchy_root"
+              name="Leave Workflow"
+              parent="hr_holidays.menu_hr_holidays_root"/>
+
+    <!-- Leave Hierarchies Menu (already working) -->
+    <menuitem id="menu_hr_leave_hierarchy"
+              name="Leave Hierarchies"
+              parent="menu_hr_leave_hierarchy_root"
+              action="hr_leave_hierarchy.action_hr_leave_hierarchy"/>
+
+    <!-- NEW: Approval Inbox -->
+    <menuitem id="menu_hr_leave_approval_inbox"
+              name="Time Off Approvals"
+              parent="menu_hr_leave_hierarchy_root"
+              action="action_hr_leave_management_hierarchy"/>
+
+    <menuitem
+        id="menu_leave_workflow"
+        name="Leave Workflow Details"
+        parent="hr_holidays.menu_hr_holidays_root"
+        action="action_hr_leave_workflow"
+        sequence="60"/>
 
 </odoo>

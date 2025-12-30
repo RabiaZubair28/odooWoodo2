@@ -1,0 +1,21 @@
+<odoo>
+    <record id="action_hr_leave_workflow" model="ir.actions.act_window">
+        <field name="name">Leave Workflow Details</field>
+        <field name="res_model">hr.leave</field>
+        <field name="view_mode">list,form</field>
+
+        <!-- Only HR users & managers -->
+        <field name="groups_id" eval="[
+            (4, ref('hr.group_hr_user')),
+            (4, ref('hr.group_hr_manager'))
+        ]"/>
+
+        <field name="domain">
+            [
+                "|",
+                ("is_current_approver", "=", True),
+                ("employee_id.user_id", "=", uid)
+            ]
+        </field>
+    </record>
+</odoo>

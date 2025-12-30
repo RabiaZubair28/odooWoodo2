@@ -2,7 +2,7 @@
     <record id="action_hr_leave_hierarchy" model="ir.actions.act_window">
         <field name="name">Leave Hierarchies</field>
         <field name="res_model">hr.leave.hierarchy</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="target">current</field>
     </record>
 </odoo>

@@ -1,49 +1,22 @@
 <odoo>
-
-    <record id="view_hr_leave_hierarchy_form" model="ir.ui.view">
+    <record id="view_leave_hierarchy_form" model="ir.ui.view">
         <field name="name">hr.leave.hierarchy.form</field>
         <field name="model">hr.leave.hierarchy</field>
         <field name="arch" type="xml">
             <form>
                 <sheet>
-                    <group>
-                        <field name="name"/>
-                        <field name="leave_type_id"/>
-                    </group>
-
-                    <notebook>
-                        <page string="Steps">
-                            <field name="step_ids">
-                                <list editable="bottom">
-                                    <field name="sequence"/>
-                                    <field name="approver_ids"/>
-                                    <field name="mode"/>
-                                    <field name="action_type"/>
-                                    <field name="notify_next"/>
-                                </list>
-                            </field>
-                        </page>
-                    </notebook>
+                    <field name="name"/>
+                    <field name="step_ids">
+                        <list editable="bottom">
+                            <field name="sequence"/>
+                            <field name="approver_ids"/>
+                            <field name="mode"/>
+                            <field name="action_type"/>
+                            <field name="notify_next"/>
+                        </list>
+                    </field>
                 </sheet>
             </form>
         </field>
     </record>
-
-    <record id="view_hr_leave_hierarchy_list" model="ir.ui.view">
-        <field name="name">hr.leave.hierarchy.list</field>
-        <field name="model">hr.leave.hierarchy</field>
-        <field name="arch" type="xml">
-            <list>
-                <field name="name"/>
-                <field name="leave_type_id"/>
-            </list>
-        </field>
-    </record>
-
-    <record id="action_hr_leave_hierarchy" model="ir.actions.act_window">
-        <field name="name">Leave Hierarchy</field>
-        <field name="res_model">hr.leave.hierarchy</field>
-        <field name="view_mode">list,form</field>
-    </record>
-
 </odoo>
