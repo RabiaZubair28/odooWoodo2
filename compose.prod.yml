@@ -11,6 +11,7 @@ services:
       - .env.prod
     command: >
       /app/entrypoint.sh --proxy-mode=True
+
     ports:
       - "8069:8069"
     restart: always

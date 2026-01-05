@@ -6,6 +6,7 @@
     'data': [
         'views/district_views.xml',
         'views/facility_type_views.xml',
+        'views/tehsil_views.xml',
         'security/ir.model.access.csv',
     ],
     'installable': True,

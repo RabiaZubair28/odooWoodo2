@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
     <!-- Leave Request: restrict Leave Types by employee gender -->
     <record id="view_hr_leave_form_gender_domain_inherit" model="ir.ui.view">
         <field name="name">hr.leave.form.gender.domain.inherit</field>
@@ -24,9 +25,8 @@
 
             <!-- Make supporting document mandatory when required by leave type -->
             <xpath expr="//field[@name='supported_attachment_ids']" position="attributes">
-                <attribute name="required">leave_type_support_document and state in ('confirm','validate1')</attribute>
-                <!-- Ensure uploads are included in create/write payloads -->
-                <attribute name="force_save">1</attribute>
+                <!-- TEMPORARILY DISABLED (per request): do not block save/submit -->
+                <attribute name="required">0</attribute>
             </xpath>
             <xpath expr="//field[@name='supported_attachment_ids']" position="before">
                 <field name="support_document_note" readonly="1"
@@ -76,6 +76,7 @@
                 <field name="max_days_per_month"/>
                 <field name="max_days_per_year"/>
                 <field name="max_times_in_service"/>
+                <field name="auto_allocate"/>
             </xpath>
         </field>
     </record>

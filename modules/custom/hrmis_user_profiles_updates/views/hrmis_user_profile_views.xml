@@ -29,6 +29,10 @@
 
                     </group>
                 </sheet>
+                <chatter>
+                    <field name="message_ids"/>
+                    <field name="activity_ids"/>
+                </chatter>
             </form>
 
         </field>

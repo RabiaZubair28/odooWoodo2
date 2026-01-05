@@ -16,6 +16,7 @@
         'hr',
         'project',
         'ohrms_holidays_approval',
+        # 'custom_approvals_odoo18',
     ],
     'data': [],
     'demo': [],

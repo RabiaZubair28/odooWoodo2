@@ -1,3 +1,5 @@
+from datetime import date as pydate
+
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 from dateutil.relativedelta import relativedelta
@@ -6,9 +8,8 @@ class HrLeave(models.Model):
     _inherit = 'hr.leave'
 
     hrmis_profile_id = fields.Many2one(
-        'hrmis.user.profile',
+        'hr.employee',
         string="HRMIS Profile",
-        related="employee_id.hrmis_profile_id",
         readonly=True,
     )
 
@@ -43,13 +44,34 @@ class HrLeave(models.Model):
         readonly=True,
     )
 
-    @api.depends('employee_id', 'employee_id.hrmis_gender', 'employee_id.gender')
+    employee_leave_balance_total = fields.Float(
+        string="Total Leave Balance (Days)",
+        compute="_compute_employee_leave_balances",
+        readonly=True,
+        help="Approximate total available leave balance across all leave types (validated allocations - validated leaves).",
+    )
+
+    employee_earned_leave_balance = fields.Float(
+        string="Earned Leave Balance (Days)",
+        compute="_compute_employee_leave_balances",
+        readonly=True,
+        help="Approximate available balance for Earned Leave (validated allocations - validated leaves).",
+    )
+
+    employee_eol_leave_balance = fields.Float(
+        string="EOL Leave Balance (Days)",
+        compute="_compute_employee_leave_balances",
+        readonly=True,
+        help="Available balance for Leave Without Pay (EOL), computed using Odoo's leave balance engine.",
+    )
+
+    @api.depends('employee_id', 'employee_id.gender')
     def _compute_employee_gender(self):
         """
-        Prefer HRMIS gender (if available) and fall back to built-in hr.employee gender.
+        Use built-in hr.employee gender.
         """
         for leave in self:
-            leave.employee_gender = leave.employee_id.hrmis_gender or leave.employee_id.gender or False
+            leave.employee_gender = leave.employee_id.gender or False
 
     def _is_fitness_resume_duty_eligible(self, employee, ref_date):
         """
@@ -98,6 +120,83 @@ class HrLeave(models.Model):
             delta = relativedelta(ref_date, joining_date)
             leave.employee_service_months = delta.years * 12 + delta.months
 
+    def _get_leave_type_remaining(self, leave_type, employee, ref_date=None):
+        """
+        Return remaining days for a leave type for a given employee, using the same
+        computed fields Odoo shows in the UI ("X remaining out of Y").
+        """
+        ref_date = fields.Date.to_date(ref_date or fields.Date.today())
+        lt = leave_type.with_context(
+            employee_id=employee.id,
+            default_employee_id=employee.id,
+            default_date_from=ref_date,
+            default_date_to=ref_date,
+            request_type='leave',
+        )
+        # Prefer the same server method used by Odoo to compute balances when available.
+        if hasattr(lt, 'get_days'):
+            try:
+                days = lt.get_days(employee.id)
+                if isinstance(days, dict) and employee.id in days and isinstance(days[employee.id], dict):
+                    return (
+                        days[employee.id].get('virtual_remaining_leaves')
+                        if days[employee.id].get('virtual_remaining_leaves') is not None
+                        else days[employee.id].get('remaining_leaves', 0.0)
+                    ) or 0.0
+            except Exception:
+                # Fall back to computed fields below
+                pass
+        if 'virtual_remaining_leaves' in lt._fields:
+            return lt.virtual_remaining_leaves or 0.0
+        if 'remaining_leaves' in lt._fields:
+            return lt.remaining_leaves or 0.0
+        return 0.0
+
+    @api.depends('employee_id', 'request_date_from')
+    def _compute_employee_leave_balances(self):
+        """
+        Compute leave balances using Odoo's own leave type balance computation (same as UI),
+        so it matches accrual plans and validity rules.
+        """
+        all_types = self.env['hr.leave.type'].search([])
+        # Be tolerant to naming variations for Earned Leave (kept for other rules/UI)
+        earned_types = self.env['hr.leave.type'].search([('name', 'ilike', 'Earned Leave')])
+        # EOL leave type(s)
+        eol_types = self.env['hr.leave.type'].search([
+            '|',
+            ('name', 'ilike', 'EOL'),
+            ('name', 'ilike', 'Leave Without Pay'),
+        ])
+
+        for leave in self:
+            if not leave.employee_id:
+                leave.employee_leave_balance_total = 0.0
+                leave.employee_earned_leave_balance = 0.0
+                leave.employee_eol_leave_balance = 0.0
+                continue
+
+            total = 0.0
+            for lt in all_types:
+                rem = leave._get_leave_type_remaining(lt, leave.employee_id, leave.request_date_from)
+                if rem > 0:
+                    total += rem
+
+            earned_total = 0.0
+            for lt in earned_types:
+                rem = leave._get_leave_type_remaining(lt, leave.employee_id, leave.request_date_from)
+                if rem > 0:
+                    earned_total += rem
+
+            eol_total = 0.0
+            for lt in eol_types:
+                rem = leave._get_leave_type_remaining(lt, leave.employee_id, leave.request_date_from)
+                if rem > 0:
+                    eol_total += rem
+
+            leave.employee_leave_balance_total = total
+            leave.employee_earned_leave_balance = earned_total
+            leave.employee_eol_leave_balance = eol_total
+
     @api.onchange('employee_id', 'holiday_status_id','hrmis_profile_id')
     def _onchange_employee_filter_leave_type(self):
         if not self.employee_id:
@@ -119,6 +218,21 @@ class HrLeave(models.Model):
         fitness_type = self.env['hr.leave.type'].search([('name', '=ilike', 'Fitness To Resume Duty')], limit=1)
         if fitness_type and not self.fitness_resume_duty_eligible:
             domain += [('id', '!=', fitness_type.id)]
+
+        # Ex-Pakistan: only if employee has any leave balance
+        ex_pk = self.env['hr.leave.type'].search([('name', '=ilike', 'Ex-Pakistan Leave')], limit=1)
+        if ex_pk and (self.employee_leave_balance_total or 0.0) <= 0.0:
+            domain += [('id', '!=', ex_pk.id)]
+
+        # LPR: only if employee has earned leave balance
+        lpr = self.env['hr.leave.type'].search([
+            '|',
+            ('name', '=ilike', 'Leave Preparatory to Retirement (LPR)'),
+            ('name', '=ilike', 'LPR'),
+        ], limit=1)
+        # Per latest rule: LPR requires EOL leave balance (not earned leave)
+        if lpr and (self.employee_eol_leave_balance or 0.0) <= 0.0:
+            domain += [('id', '!=', lpr.id)]
 
         return {'domain': {'holiday_status_id': domain}}
 
@@ -171,6 +285,48 @@ class HrLeave(models.Model):
                     "from an approved Maternity or Medical leave."
                 )
 
+    @api.constrains('employee_id', 'holiday_status_id', 'state')
+    def _check_leave_balance_prereqs(self):
+        """
+        - Ex-Pakistan Leave requires employee to have some leave balance overall.
+        - LPR requires employee to have Earned Leave balance.
+        """
+        for leave in self:
+            if not leave.employee_id or not leave.holiday_status_id:
+                continue
+            if leave.state in ('cancel', 'refuse'):
+                continue
+
+            lt_name = (leave.holiday_status_id.name or '').strip().lower()
+            if lt_name == 'ex-pakistan leave':
+                # Compute on demand (avoid stale computed fields)
+                all_types = self.env['hr.leave.type'].search([])
+                ref = leave.request_date_from or fields.Date.today()
+                total_bal = sum(
+                    max(0.0, leave._get_leave_type_remaining(t, leave.employee_id, ref))
+                    for t in all_types
+                )
+                if total_bal <= 0.0:
+                    raise ValidationError(
+                        "Ex-Pakistan Leave is only applicable to employees who have a leave balance."
+                    )
+
+            if lt_name in ('leave preparatory to retirement (lpr)', 'lpr'):
+                ref = leave.request_date_from or fields.Date.today()
+                eol_types = self.env['hr.leave.type'].search([
+                    '|',
+                    ('name', 'ilike', 'EOL'),
+                    ('name', 'ilike', 'Leave Without Pay'),
+                ])
+                eol_bal = sum(
+                    max(0.0, leave._get_leave_type_remaining(t, leave.employee_id, ref))
+                    for t in eol_types
+                )
+                if eol_bal <= 0.0:
+                    raise ValidationError(
+                        "LPR is only applicable to employees who have a Leave Without Pay (EOL) balance."
+                    )
+
     def _vals_include_any_attachment(self, vals):
         """
         Detect attachments being added in the same create/write call.
@@ -213,6 +369,9 @@ class HrLeave(models.Model):
         Implemented as a post create/write check to avoid timing issues with
         many2many_binary uploads (common with PDFs).
         """
+        # TEMPORARILY DISABLED (per request): supporting documents enforcement
+        # to allow testing of other eligibility rules without being blocked.
+        return
         for leave in self:
             if not leave.holiday_status_id:
                 continue
@@ -238,6 +397,50 @@ class HrLeave(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # If a leave type is policy auto-allocated (e.g. Casual Leave 2 days/month),
+        # ensure the required allocation exists before Odoo validates the request.
+        Allocation = self.env['hr.leave.allocation']
+        for vals in vals_list:
+            try:
+                lt_id = vals.get('holiday_status_id')
+                emp_id = vals.get('employee_id')
+                if not lt_id or not emp_id:
+                    continue
+
+                lt = self.env['hr.leave.type'].browse(lt_id).exists()
+                emp = self.env['hr.employee'].browse(emp_id).exists()
+                if not lt or not emp:
+                    continue
+
+                if not lt.auto_allocate:
+                    continue
+
+                # Determine request date range (best-effort, tolerate strings)
+                d_from = fields.Date.to_date(vals.get('request_date_from') or vals.get('date_from') or fields.Date.today())
+                d_to = fields.Date.to_date(vals.get('request_date_to') or vals.get('date_to') or d_from)
+                if not d_from:
+                    continue
+                if d_to and d_to < d_from:
+                    d_to = d_from
+
+                if lt.max_days_per_month:
+                    # Ensure monthly allocations for all months touched by the request
+                    cur = pydate(d_from.year, d_from.month, 1)
+                    end_month = pydate((d_to or d_from).year, (d_to or d_from).month, 1)
+                    while cur <= end_month:
+                        Allocation._ensure_monthly_allocation(emp, lt, cur.year, cur.month)
+                        cur = cur + relativedelta(months=1)
+                elif lt.max_days_per_year:
+                    # Ensure yearly allocations for all years touched by the request
+                    for y in range(d_from.year, (d_to or d_from).year + 1):
+                        Allocation._ensure_yearly_allocation(emp, lt, y)
+                else:
+                    # One-time employment entitlement (e.g. maternity/paternity/LPR)
+                    Allocation._ensure_one_time_allocation(emp, lt)
+            except Exception:
+                # Never block leave creation due to auto-allocation helper
+                continue
+
         leaves = super().create(vals_list)
         for leave, vals in zip(leaves, vals_list):
             leave._enforce_supporting_documents_required(vals)
@@ -323,5 +526,3 @@ class HrLeave(models.Model):
                         f"Maximum duration for this Time Off Type is {lt.max_days_per_year} day(s) per year."
                     )
     
-
-

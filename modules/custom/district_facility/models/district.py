@@ -6,6 +6,11 @@ class District(models.Model):
     _sql_constraints = [
         ('name_unique', 'unique(name)', 'The district name must be unique!')
     ]
+    tehsil_ids = fields.One2many(
+        'x_tehsil.master',
+        'district_id',
+        string="Tehsils"
+    )
 
     name = fields.Char(string="District Name", required=True)
     code = fields.Char(string="District Code")
