@@ -121,30 +121,85 @@ class HRMISProfileRequest(http.Controller):
             error = "Please complete the following fields before submitting:\n• " + "\n• ".join(missing)
             return self._render_profile_form(employee, req, error=error)
 
-        # Convert IDs to integers
-        district_id = int(post.get('district_id'))
-        facility_id = int(post.get('facility_id'))
+        # --------------------------
+        # VALIDATE DATE FIELDS
+        # --------------------------
+        from datetime import datetime, date
+
+        today = date.today()
+        joining_date_str = post.get('hrmis_joining_date')
+        try:
+            joining_date = datetime.strptime(joining_date_str, '%Y-%m-%d').date()
+            if joining_date > today:
+                error = "Joining Date cannot be in the future."
+                return self._render_profile_form(employee, req, error=error)
+        except Exception:
+            error = "Invalid Joining Date format."
+            return self._render_profile_form(employee, req, error=error)
+
+        # birthday validation if needed
+        birthday_str = post.get('birthday')
+        if birthday_str:
+            try:
+                birthday = datetime.strptime(birthday_str, '%Y-%m-%d').date()
+                if birthday > today:
+                    error = "Date of Birth cannot be in the future."
+                    return self._render_profile_form(employee, req, error=error)
+            except Exception:
+                error = "Invalid Date of Birth format."
+                return self._render_profile_form(employee, req, error=error)
+
+        # --------------------------
+        # VALIDATE BPS
+        # --------------------------
+        try:
+            bps = int(post.get('hrmis_bps'))
+            if bps < 6 or bps > 22:
+                error = "BPS must be between 6 and 22."
+                return self._render_profile_form(employee, req, error=error)
+        except Exception:
+            error = "Invalid BPS value."
+            return self._render_profile_form(employee, req, error=error)
+
+        # --------------------------
+        # VALIDATE UNIQUENESS
+        # --------------------------
+        HRRequest = request.env['hrmis.employee.profile.request'].sudo()
+        cnic = post.get('hrmis_cnic')
+        hr_id = post.get('hrmis_employee_id')
+
+        # CNIC unique
+        if HRRequest.search_count([('hrmis_cnic', '=', cnic), ('id', '!=', req.id)]):
+            error = "CNIC must be unique."
+            return self._render_profile_form(employee, req, error=error)
+
+        # Employee ID unique
+        if HRRequest.search_count([('hrmis_employee_id', '=', hr_id), ('id', '!=', req.id)]):
+            error = "Employee ID / Service Number must be unique."
+            return self._render_profile_form(employee, req, error=error)
 
         # --------------------------
         # WRITE THE RECORD
         # --------------------------
         req.write({
-            'hrmis_employee_id': post.get('hrmis_employee_id'),
-            'hrmis_cnic': post.get('hrmis_cnic'),
+            'hrmis_employee_id': hr_id,
+            'hrmis_cnic': cnic,
             'hrmis_father_name': post.get('hrmis_father_name'),
             'gender': post.get('gender'),
-            'hrmis_joining_date': post.get('hrmis_joining_date'),
-            'hrmis_bps': int(post.get('hrmis_bps')),
+            'hrmis_joining_date': joining_date_str,
+            'hrmis_bps': bps,
             'hrmis_cadre': post.get('hrmis_cadre'),
             'hrmis_designation': post.get('hrmis_designation'),
-            'district_id': district_id,
-            'facility_id': facility_id,
+            'district_id': int(post.get('district_id')),
+            'facility_id': int(post.get('facility_id')),
             'hrmis_contact_info': post.get('hrmis_contact_info'),
             'state': 'submitted',
         })
 
         success = 'Profile update request submitted successfully.'
         return self._render_profile_form(employee, req, success=success)
+
+
 
     # Helper to render the same form with messages
     def _render_profile_form(self, employee, req, error=None, success=None):
