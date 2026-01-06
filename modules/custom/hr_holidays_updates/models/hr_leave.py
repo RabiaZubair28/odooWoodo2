@@ -65,15 +65,15 @@ class HrLeave(models.Model):
         help="Available balance for Leave Without Pay (EOL), computed using Odoo's leave balance engine.",
     )
 
-    approval_status_ids = fields.One2many(
-        "hr.leave.approval.status",
-        "leave_id",
-        readonly=True,
-    )
+    # approval_status_ids = fields.One2many(
+    #     "hr.leave.approval.status",
+    #     "leave_id",
+    #     readonly=True,
+    # )
 
-    approval_step = fields.Integer(default=1, readonly=True)
+    # approval_step = fields.Integer(default=1, readonly=True)
 
-    current_validation_sequence = fields.Integer(default=1)
+    # current_validation_sequence = fields.Integer(default=1)
 
     @api.depends('employee_id', 'employee_id.gender')
     def _compute_employee_gender(self):
@@ -540,128 +540,128 @@ class HrLeave(models.Model):
     # ----------------------------
     # INIT FLOW ON SUBMIT
     # ----------------------------
-    def action_confirm(self):
-        res = super().action_confirm()
-        self._init_approval_flow()
-        return res
+    # def action_confirm(self):
+    #     res = super().action_confirm()
+    #     self._init_approval_flow()
+    #     return res
 
-    def _init_approval_flow(self):
-        for leave in self:
-            leave.approval_status_ids.unlink()
+    # def _init_approval_flow(self):
+    #     for leave in self:
+    #         leave.approval_status_ids.unlink()
 
-            flows = self.env["hr.leave.approval.flow"].search(
-                [("leave_type_id", "=", leave.holiday_status_id.id)],
-                order="sequence",
-            )
+    #         flows = self.env["hr.leave.approval.flow"].search(
+    #             [("leave_type_id", "=", leave.holiday_status_id.id)],
+    #             order="sequence",
+    #         )
 
-            if not flows:
-                continue
+    #         if not flows:
+    #             continue
 
-            leave.approval_step = flows[0].sequence
+    #         leave.approval_step = flows[0].sequence
 
-            for flow in flows:
-                for user in flow.approver_ids:
-                    self.env["hr.leave.approval.status"].create({
-                        "leave_id": leave.id,
-                        "flow_id": flow.id,
-                        "user_id": user.id,
-                    })
+    #         for flow in flows:
+    #             for user in flow.approver_ids:
+    #                 self.env["hr.leave.approval.status"].create({
+    #                     "leave_id": leave.id,
+    #                     "flow_id": flow.id,
+    #                     "user_id": user.id,
+    #                 })
 
     # ----------------------------
     # CHECK IF USER CAN APPROVE
     # ----------------------------
-    def is_pending_for_user(self, user):
-        self.ensure_one()
+    # def is_pending_for_user(self, user):
+    #     self.ensure_one()
 
-        current_flows = self.env["hr.leave.approval.flow"].search([
-            ("leave_type_id", "=", self.holiday_status_id.id),
-            ("sequence", "=", self.approval_step),
-        ])
+    #     current_flows = self.env["hr.leave.approval.flow"].search([
+    #         ("leave_type_id", "=", self.holiday_status_id.id),
+    #         ("sequence", "=", self.approval_step),
+    #     ])
 
-        return bool(self.approval_status_ids.filtered(
-            lambda s: s.flow_id in current_flows
-            and s.user_id == user
-            and not s.approved
-        ))
+    #     return bool(self.approval_status_ids.filtered(
+    #         lambda s: s.flow_id in current_flows
+    #         and s.user_id == user
+    #         and not s.approved
+    #     ))
 
     # ----------------------------
     # APPROVE ACTION
     # ----------------------------
-    def action_approve_by_user(self):
-        self.ensure_one()
-        user = self.env.user
+    # def action_approve_by_user(self):
+    #     self.ensure_one()
+    #     user = self.env.user
 
-        if self.state == "validate":
-            raise UserError("This leave request is already approved.")
+    #     if self.state == "validate":
+    #         raise UserError("This leave request is already approved.")
 
-        current_flows = self.env["hr.leave.approval.flow"].search([
-            ("leave_type_id", "=", self.holiday_status_id.id),
-            ("sequence", "=", self.approval_step),
-        ])
+    #     current_flows = self.env["hr.leave.approval.flow"].search([
+    #         ("leave_type_id", "=", self.holiday_status_id.id),
+    #         ("sequence", "=", self.approval_step),
+    #     ])
 
-        statuses = self.approval_status_ids.filtered(
-            lambda s: s.flow_id in current_flows
-            and s.user_id == user
-            and not s.approved
-        )
+    #     statuses = self.approval_status_ids.filtered(
+    #         lambda s: s.flow_id in current_flows
+    #         and s.user_id == user
+    #         and not s.approved
+    #     )
 
-        if not statuses:
-            raise UserError("You are not authorized to approve this request.")
+    #     if not statuses:
+    #         raise UserError("You are not authorized to approve this request.")
 
-        statuses.write({
-            "approved": True,
-            "approved_on": fields.Datetime.now(),
-        })
+    #     statuses.write({
+    #         "approved": True,
+    #         "approved_on": fields.Datetime.now(),
+    #     })
 
-        # Check if step complete
-        for flow in current_flows:
-            flow_statuses = self.approval_status_ids.filtered(
-                lambda s: s.flow_id == flow
-            )
-            if not all(flow_statuses.mapped("approved")):
-                return
+    #     # Check if step complete
+    #     for flow in current_flows:
+    #         flow_statuses = self.approval_status_ids.filtered(
+    #             lambda s: s.flow_id == flow
+    #         )
+    #         if not all(flow_statuses.mapped("approved")):
+    #             return
 
-        # Move to next step or finalize
-        next_flow = self.env["hr.leave.approval.flow"].search([
-            ("leave_type_id", "=", self.holiday_status_id.id),
-            ("sequence", ">", self.approval_step),
-        ], order="sequence", limit=1)
+    #     # Move to next step or finalize
+    #     next_flow = self.env["hr.leave.approval.flow"].search([
+    #         ("leave_type_id", "=", self.holiday_status_id.id),
+    #         ("sequence", ">", self.approval_step),
+    #     ], order="sequence", limit=1)
 
-        if next_flow:
-            self.approval_step = next_flow.sequence
-        else:
-            self.action_validate()
+    #     if next_flow:
+    #         self.approval_step = next_flow.sequence
+    #     else:
+    #         self.action_validate()
 
 
-    def action_approve(self):
-        for leave in self:
-            leave_type = leave.holiday_status_id
+    # def action_approve(self):
+    #     for leave in self:
+    #         leave_type = leave.holiday_status_id
 
-            if leave_type.leave_validation_type != 'multi' or not leave_type.multi_level_validation:
-                return super().action_approve()
+    #         if leave_type.leave_validation_type != 'multi' or not leave_type.multi_level_validation:
+    #             return super().action_approve()
 
-            validators = leave_type.validator_ids.sorted('sequence')
-            current = validators.filtered(
-                lambda v: v.sequence == leave.current_validation_sequence
-            )
+    #         validators = leave_type.validator_ids.sorted('sequence')
+    #         current = validators.filtered(
+    #             lambda v: v.sequence == leave.current_validation_sequence
+    #         )
 
-            if not current:
-                # Final approval
-                leave.state = 'validate'
-                return
+    #         if not current:
+    #             # Final approval
+    #             leave.state = 'validate'
+    #             return
 
-            validator = current[0]
+    #         validator = current[0]
 
-            if self.env.user != validator.user_id:
-                raise UserError("You are not authorized to approve at this stage.")
+    #         if self.env.user != validator.user_id:
+    #             raise UserError("You are not authorized to approve at this stage.")
 
-            if validator.action_type == 'comment':
-                leave.message_post(
-                    body="Comment added by %s" % self.env.user.name
-                )
-            else:
-                leave.message_post(
-                    body="Approved by %s" % self.env.user.name
-                )
+    #         if validator.action_type == 'comment':
+    #             leave.message_post(
+    #                 body="Comment added by %s" % self.env.user.name
+    #             )
+    #         else:
+    #             leave.message_post(
+    #                 body="Approved by %s" % self.env.user.name
+    #             )
 
-            leave.current_validation_sequence += 1
+    #         leave.current_validation_sequence += 1

@@ -6,14 +6,14 @@
         <field name="arch" type="xml">
 
             <!-- Replace approve button -->
-            <xpath expr="//button[@name='action_approve']" position="replace">
+            <!-- <xpath expr="//button[@name='action_approve']" position="replace">
                 <button
                     name="action_approve_by_user"
                     type="object"
                     string="Approve"
                     class="btn-primary"
                     invisible="state == 'validate'"/>
-            </xpath>
+            </xpath> -->
 
             <!-- Approval status block -->
             <xpath expr="//sheet" position="inside">
