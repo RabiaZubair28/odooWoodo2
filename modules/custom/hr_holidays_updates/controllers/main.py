@@ -131,9 +131,13 @@ def _pending_leave_requests_for_user(user_id: int):
     Leave = request.env["hr.leave"].sudo()
 
     domains = []
+    # Prefer the custom sequential/parallel visibility engine when available.
+    # This ensures only the *current* pending approver(s) see the request.
+    if "pending_approver_ids" in Leave._fields:
+        domains.append([("state", "=", "confirm"), ("pending_approver_ids", "in", [user_id])])
     # OpenHRMS multi-level approval: show only requests where current user is a validator
     # and has NOT yet approved.
-    if "validation_status_ids" in Leave._fields:
+    if "validation_status_ids" in Leave._fields and "pending_approver_ids" not in Leave._fields:
         domains.append(
             [
                 ("state", "=", "confirm"),
@@ -176,6 +180,9 @@ def _leave_pending_for_current_user(leave) -> bool:
     if not leave:
         return False
     try:
+        # If our custom engine is present, use it directly (fast + correct).
+        if hasattr(leave.with_user(request.env.user), "is_pending_for_user"):
+            return bool(leave.with_user(request.env.user).is_pending_for_user(request.env.user))
         pending = _pending_leave_requests_for_user(request.env.user.id)
         return bool(leave.id in set(pending.ids))
     except Exception:
@@ -763,6 +770,15 @@ class HrmisLeaveFrontendController(http.Controller):
         leave = request.env["hr.leave"].sudo().browse(leave_id).exists()
         if not leave:
             return request.not_found()
+        # Website exposure: only requester/creator or current pending approvers
+        # should be able to view a leave request while it's awaiting approval.
+        user = request.env.user
+        if leave.state == "confirm":
+            is_requester = bool(leave.employee_id and leave.employee_id.user_id and leave.employee_id.user_id.id == user.id)
+            is_creator = bool(leave.create_uid and leave.create_uid.id == user.id)
+            is_pending = _leave_pending_for_current_user(leave)
+            if not (is_requester or is_creator or is_pending):
+                return request.redirect("/hrmis/manage/requests?tab=leave&error=not_allowed")
         return request.render(
             "hr_holidays_updates.hrmis_leave_view",
             _base_ctx("Leave request", "leave_requests", leave=leave),
@@ -806,7 +822,10 @@ class HrmisLeaveFrontendController(http.Controller):
                     st = leave.validation_status_ids.filtered(lambda s: s.user_id.id == request.env.user.id)[:1]
                     if st:
                         st.sudo().write({"leave_comments": comment})
-                    leave.message_post(body=f"Approval comment by {request.env.user.name}:<br/>{comment}")
+                    leave.sudo().message_post(
+                        body=f"Approval comment by {request.env.user.name}:<br/>{comment}",
+                        author_id=getattr(request.env.user, "partner_id", False) and request.env.user.partner_id.id or False,
+                    )
                 leave.with_user(request.env.user).action_validate()
             else:
                 # Use our custom sequential approval, capturing optional comment.

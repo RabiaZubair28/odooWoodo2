@@ -1,51 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!--
-    Sequential visibility for *any* user who is listed as an approver.
-
-    This is intentionally NOT tied to a custom group, because module upgrades do
-    not reload Python and we can't safely rely on automatic group membership sync.
-
-    Behavior:
-    - If a user is NOT an approver on a leave, they are unaffected by this rule.
-    - If a user IS an approver on a leave (approval_status_ids includes them),
-      then while the leave is in 'confirm' state they can only see it when it is
-      currently pending for them (pending_approver_ids).
-    - Requesters (employee user / creator) can always see their own leaves.
-    -->
-    <record id="rule_hr_leave_sequential_visibility_any_approver" model="ir.rule">
-        <field name="name">Sequential approval: hide future-step leaves from approvers</field>
-        <field name="model_id" ref="hr_holidays.model_hr_leave"/>
-        <field name="domain_force">
-            [
-                '|',
-                ('state', '!=', 'confirm'),
-                '|','|',
-                    ('employee_id.user_id', '=', user.id),
-                    ('create_uid', '=', user.id),
-                    '|',
-                        ('approval_status_ids.user_id', '!=', user.id),
-                        ('pending_approver_ids', 'in', [user.id])
-            ]
-        </field>
-    </record>
-
-    <!-- Apply the same "future-step hiding" to the status rows to avoid leaking
-         information through the one2many. -->
-    <record id="rule_hr_leave_approval_status_sequential_visibility_any_approver" model="ir.rule">
-        <field name="name">Sequential approval: approval status visibility</field>
-        <field name="model_id" ref="hr_holidays_updates.model_hr_leave_approval_status"/>
-        <field name="domain_force">
-            [
-                '|',
-                ('leave_id.state', '!=', 'confirm'),
-                '|','|',
-                    ('leave_id.employee_id.user_id', '=', user.id),
-                    ('leave_id.create_uid', '=', user.id),
-                    '|',
-                        ('leave_id.approval_status_ids.user_id', '!=', user.id),
-                        ('leave_id.pending_approver_ids', 'in', [user.id])
-            ]
-        </field>
-    </record>
+  <record id="rule_hr_leave_sequential_visibility_any_approver" model="ir.rule">
+    <field name="name">Sequential approval: hide future-step leaves from approvers</field>
+    <field name="model_id" ref="hr_holidays.model_hr_leave"/>
+    <field name="domain_force">
+      [
+        '|',
+        ('state', '!=', 'confirm'),
+        '|','|',
+          ('employee_id.user_id', '=', user.id),
+          ('create_uid', '=', user.id),
+          '|',
+            ('approver_user_ids', 'not in', [user.id]),
+            ('pending_approver_ids', 'in', [user.id])
+      ]
+    </field>
+  </record>
+ 
+  <record id="rule_hr_leave_approval_status_sequential_visibility_any_approver" model="ir.rule">
+    <field name="name">Sequential approval: approval status visibility</field>
+    <field name="model_id" ref="hr_holidays_updates.model_hr_leave_approval_status"/>
+    <field name="domain_force">
+      [
+        '|',
+        ('leave_id.state', '!=', 'confirm'),
+        '|','|',
+          ('leave_id.employee_id.user_id', '=', user.id),
+          ('leave_id.create_uid', '=', user.id),
+          '|',
+            ('leave_id.approver_user_ids', 'not in', [user.id]),
+            ('leave_id.pending_approver_ids', 'in', [user.id])
+      ]
+    </field>
+  </record>
 </odoo>
