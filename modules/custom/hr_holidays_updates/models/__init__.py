@@ -11,7 +11,9 @@ from . import hr_leave_balances
 from . import hr_leave_onchange
 from . import hr_leave_attachments
 from . import hr_leave_constraints
+from . import hr_leave_date_guards
 from . import hr_leave_approval_runtime
+from . import hr_leave_notifications
 
 from . import hr_leave_allocation
 from . import hr_leave_allocation_auto_utils

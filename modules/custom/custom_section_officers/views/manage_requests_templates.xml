@@ -3,17 +3,19 @@
     <!-- Sidebar entry (in Section Officer module) -->
     <template id="hrmis_ui_layout_section_officer_manage_requests" inherit_id="hr_holidays_updates.hrmis_ui_layout">
         <xpath expr="//nav[contains(@class,'hrmis-nav')]" position="inside">
+        <t t-if=" request.env.user.has_group('custom_login.group_section_officer')">
             <a t-attf-class="hrmis-nav__item #{'is-active' if active_menu == 'manage_requests' else ''}"
                href="/hrmis/manage/requests?tab=leave">
                 Manage Requests
             </a>
+            </t>
         </xpath>
     </template>
 
     <template id="hrmis_manage_requests" name="HRMIS Manage Requests (Section Officer)">
         <t t-call="hr_holidays_updates.hrmis_ui_layout">
             <div class="hrmis-panel">
-                <div class="hrmis-panel__header hrmis-panel__header--tabs hrmis-panel__header--tabs--manage">
+                <div class="hrmis-panel_header hrmis-panelheader--tabs hrmis-panel_header--tabs--manage">
                     <a t-attf-class="hrmis-tab hrmis-tab--manage #{'is-active' if tab == 'allocation' else ''}"
                        t-att-href="'/hrmis/manage/requests?tab=allocation'">
                         Manage Allocation Requests
@@ -32,7 +34,7 @@
                         <t t-foreach="range(len(leaves))" t-as="idx0">
                             <t t-set="lv" t-value="leaves[idx0]"/>
                             <div class="hrmis-leave-row">
-                                <div class="hrmis-leave-row__cell hrmis-leave-row__sno"><t t-esc="idx0 + 1"/></div>
+                                <div class="hrmis-leave-row_cell hrmis-leave-row_sno"><t t-esc="idx0 + 1"/></div>
                                 <div class="hrmis-leave-row__cell">
                                     <div class="strong">
                                         <t t-esc="lv.employee_id.name"/>,
@@ -46,7 +48,7 @@
                                 <div class="hrmis-leave-row__cell">
                                     <t t-esc="lv.request_date_from"/> to <t t-esc="lv.request_date_to"/>
                                 </div>
-                                <div class="hrmis-leave-row__cell hrmis-leave-row__actions">
+                                <div class="hrmis-leave-row_cell hrmis-leave-row_actions">
                                     <a class="hrmis-btn hrmis-btn--outline" t-att-href="'/hrmis/leave/%s' % lv.id">View</a>
                                     <form t-att-action="'/hrmis/leave/%s/approve' % lv.id" method="post">
                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -68,7 +70,7 @@
                         <t t-foreach="range(len(allocations))" t-as="idx0">
                             <t t-set="al" t-value="allocations[idx0]"/>
                             <div class="hrmis-leave-row">
-                                <div class="hrmis-leave-row__cell hrmis-leave-row__sno"><t t-esc="idx0 + 1"/></div>
+                                <div class="hrmis-leave-row_cell hrmis-leave-row_sno"><t t-esc="idx0 + 1"/></div>
                                 <div class="hrmis-leave-row__cell">
                                     <div class="strong">
                                         <t t-esc="al.employee_id.name"/>,
@@ -82,7 +84,7 @@
                                 <div class="hrmis-leave-row__cell">
                                     <t t-esc="al.number_of_days"/> day(s)
                                 </div>
-                                <div class="hrmis-leave-row__cell hrmis-leave-row__actions">
+                                <div class="hrmis-leave-row_cell hrmis-leave-row_actions">
                                     <a class="hrmis-btn hrmis-btn--outline" t-att-href="'/hrmis/allocation/%s' % al.id">View</a>
                                     <form t-att-action="'/hrmis/allocation/%s/approve' % al.id" method="post">
                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -109,10 +111,10 @@
                 </div>
                 <div class="hrmis-panel__body">
                     <div class="hrmis-kv">
-                        <div class="hrmis-kv__row"><div class="hrmis-kv__k">Staff</div><div class="hrmis-kv__v"><t t-esc="allocation.employee_id.name"/></div></div>
-                        <div class="hrmis-kv__row"><div class="hrmis-kv__k">Leave type</div><div class="hrmis-kv__v"><t t-esc="allocation.holiday_status_id.name"/></div></div>
-                        <div class="hrmis-kv__row"><div class="hrmis-kv__k">Days</div><div class="hrmis-kv__v"><t t-esc="allocation.number_of_days"/></div></div>
-                        <div class="hrmis-kv__row"><div class="hrmis-kv__k">Description</div><div class="hrmis-kv__v"><t t-esc="allocation.name"/></div></div>
+                        <div class="hrmis-kv_row"><div class="hrmis-kvk">Staff</div><div class="hrmis-kv_v"><t t-esc="allocation.employee_id.name"/></div></div>
+                        <div class="hrmis-kv_row"><div class="hrmis-kvk">Leave type</div><div class="hrmis-kv_v"><t t-esc="allocation.holiday_status_id.name"/></div></div>
+                        <div class="hrmis-kv_row"><div class="hrmis-kvk">Days</div><div class="hrmis-kv_v"><t t-esc="allocation.number_of_days"/></div></div>
+                        <div class="hrmis-kv_row"><div class="hrmis-kvk">Description</div><div class="hrmis-kv_v"><t t-esc="allocation.name"/></div></div>
                         <div class="hrmis-kv__row">
                             <div class="hrmis-kv__k">State</div>
                             <div class="hrmis-kv__v">
