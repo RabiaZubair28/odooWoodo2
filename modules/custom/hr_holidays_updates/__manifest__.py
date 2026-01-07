@@ -19,15 +19,12 @@
         'views/hr_holidays_views.xml',
         'views/hrmis_frontend_templates.xml',
         'views/hrmis_frontend_menu.xml',
-<<<<<<< HEAD
-=======
         "views/hrmis_profile_request_views.xml",
         "views/hrmis_profile_approvals.xml",
         "views/hrmis_profile_request_templates.xml",
         "views/hr_leave_approval_flow_views.xml",
         "views/hr_leave_views.xml",
         'views/hr_leave_type_views.xml',
->>>>>>> 583f3a8651fc93694065fceef7735c3afc2c563d
     ],
     'assets': {
         'web.assets_frontend': [
