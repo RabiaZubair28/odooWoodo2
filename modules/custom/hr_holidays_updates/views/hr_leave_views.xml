@@ -24,6 +24,8 @@
 
                     <field name="approval_status_ids">
                         <list>
+                            <field name="sequence"/>
+                            <field name="sequence_type"/>
                             <field name="user_id"/>
                             <field name="approved"/>
                             <field name="approved_on"/>
