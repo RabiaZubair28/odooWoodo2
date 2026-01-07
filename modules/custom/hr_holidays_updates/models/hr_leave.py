@@ -13,6 +13,38 @@ class HrLeave(models.Model):
         readonly=True,
     )
 
+    approval_line_ids = fields.One2many(
+        'hr.leave.approval.line',
+        'leave_id',
+        string='Approval Lines'
+    )
+    current_sequence = fields.Integer(
+        string="Current Approval Sequence",
+        compute="_compute_current_sequence",
+        store=True,
+        index=True,
+    )
+
+    @api.depends('approval_line_ids.state', 'approval_line_ids.sequence')
+    def _compute_current_sequence(self):
+        for leave in self:
+            pending = leave.approval_line_ids.filtered(
+                lambda l: l.state == 'pending'
+            ).sorted(key=lambda l: l.sequence)
+
+            leave.current_sequence = pending[0].sequence if pending else 0
+    can_current_user_act = fields.Boolean(
+        compute='_compute_can_current_user_act',
+        store=False
+    )
+
+    @api.depends('approval_step', 'approval_status_ids.approved')
+    def _compute_can_current_user_act(self):
+        user = self.env.user
+        for leave in self:
+            leave.can_current_user_act = leave.is_pending_for_user(user)
+
+
     employee_gender = fields.Selection(
         selection=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')],
         string="Employee Gender",
@@ -74,6 +106,7 @@ class HrLeave(models.Model):
     approval_step = fields.Integer(default=1, readonly=True)
 
     current_validation_sequence = fields.Integer(default=1)
+
 
     @api.depends('employee_id', 'employee_id.gender')
     def _compute_employee_gender(self):
@@ -635,33 +668,82 @@ class HrLeave(models.Model):
 
     def action_approve(self):
         for leave in self:
-            leave_type = leave.holiday_status_id
-
-            if leave_type.leave_validation_type != 'multi' or not leave_type.multi_level_validation:
-                return super().action_approve()
-
-            validators = leave_type.validator_ids.sorted('sequence')
-            current = validators.filtered(
-                lambda v: v.sequence == leave.current_validation_sequence
+            line = leave.approval_line_ids.filtered(
+                lambda l:
+                    l.user_id == self.env.user and
+                    l.sequence == leave.current_sequence and
+                    l.state == 'pending'
             )
 
-            if not current:
-                # Final approval
-                leave.state = 'validate'
-                return
+            if not line:
+                continue
 
-            validator = current[0]
+            line.state = 'approved'
 
-            if self.env.user != validator.user_id:
-                raise UserError("You are not authorized to approve at this stage.")
 
-            if validator.action_type == 'comment':
-                leave.message_post(
-                    body="Comment added by %s" % self.env.user.name
-                )
-            else:
-                leave.message_post(
-                    body="Approved by %s" % self.env.user.name
-                )
 
-            leave.current_validation_sequence += 1
+    # def _get_validators(self):
+    #     """All validators for this leave type"""
+    #     return self.env['hr.holidays.validators'].search([
+    #         ('holiday_status_id', '=', self.holiday_status_id.id)
+    #     ], order='sequence asc')
+
+    # def _get_current_validators(self):
+    #     """Validators who are allowed to act RIGHT NOW"""
+    #     return self._get_validators().filtered(
+    #         lambda v: v.sequence == self.current_sequence
+    #     )
+
+    # def _is_sequence_completed(self):
+    #     """
+    #     A sequence is complete when:
+    #     - All COMMENT validators commented
+    #     - All APPROVE validators approved
+    #     """
+    #     self.ensure_one()
+
+    #     validators = self._get_current_validators()
+
+    #     for v in validators:
+    #         if v.action_type == 'approve' and self.state != 'validate':
+    #             return False
+    #         if v.action_type == 'comment':
+    #             # simple check: comment exists
+    #             comments = self.message_ids.filtered(
+    #                 lambda m: m.author_id.user_ids and v.user_id in m.author_id.user_ids
+    #             )
+    #             if not comments:
+    #                 return False
+
+    #     return True
+
+    # def _move_to_next_sequence(self):
+    #     self.ensure_one()
+
+    #     next_validators = self.env['hr.holidays.validators'].search([
+    #         ('holiday_status_id', '=', self.holiday_status_id.id),
+    #         ('sequence', '>', self.current_sequence)
+    #     ], order='sequence asc', limit=1)
+
+    #     if next_validators:
+    #         self.current_sequence = next_validators.sequence
+    #     else:
+    #         # No more validators → fully approved
+    #         self.state = 'validate'
+
+
+    # def _compute_can_current_user_act(self):
+    #     Validator = self.env['hr.holidays.validators']
+
+    #     for leave in self:
+    #         leave.can_current_user_act = False
+
+    #         validators = Validator.search([
+    #             ('leave_type_id', '=', leave.holiday_status_id.id),
+    #             ('sequence', '=', leave.current_sequence),
+    #         ])
+
+    #         for v in validators:
+    #             if v.validator_id.user_id == self.env.user:
+    #                 leave.can_current_user_act = True
+    #                 break

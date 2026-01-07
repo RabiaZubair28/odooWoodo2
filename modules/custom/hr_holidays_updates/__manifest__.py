@@ -13,7 +13,8 @@
         'ohrms_holidays_approval',
     ],  # Important: extend the built-in module
     'data': [
-        'data/leave_type_data.xml',  # optional
+        'security/hr_leave_rules.xml',
+        'data/leave_type_data.xml',  
         'data/support_document_rules.xml',
         'data/auto_allocation_cron.xml',
         'views/hr_holidays_views.xml',
