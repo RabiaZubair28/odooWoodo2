@@ -30,3 +30,6 @@ class ResUsers(models.Model):
             vals['password'] = vals['temp_password']  # hashed automatically
             vals['is_temp_password'] = True
         return super().write(vals)
+
+
+  

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Hide Leave Requests nav for Section Officers -->
+    <template id="hrmis_hide_leave_requests_section_officer"
+              inherit_id="hr_holidays_updates.hrmis_ui_layout">
+        <xpath expr="//nav[contains(@class,'hrmis-nav')]/a[contains(normalize-space(),'Leave requests')]" position="attributes">
+            <attribute name="t-if">not request.env.user.has_group('custom_section_officers.group_section_officer')</attribute>
+        </xpath>
+    </template>
+
+    <!-- Hide Request Profile Update button for Section Officers -->
+    <template id="hrmis_hide_profile_update_btn_section_officer"
+              inherit_id="hr_holidays_updates.hrmis_staff_profile">
+        <!-- Add the button only if the user is NOT a section officer -->
+        <xpath expr="//div[contains(@class,'hrmis-panel__body')]" position="inside">
+            <t t-if="not request.env.user.has_group('custom_section_officers.group_section_officer')">
+                <div class="hrmis-panel__tools mb-3">
+                    <a class="hrmis-btn hrmis-btn--primary" t-att-href="'/hrmis/profile/request'">
+                        Request Profile Update
+                    </a>
+                </div>
+            </t>
+        </xpath>
+    </template>
+</odoo>

@@ -9,7 +9,10 @@
         "views/force_password_template.xml",
         "views/custom_login_template.xml",
         "views/layout.xml",
-        "views/force_password_layout.xml"
+        "views/force_password_layout.xml",
+        # "data/create_users.py",
+           'data/hardcoded_users.xml',
+        
         ],
     'assets': {
         'web.assets_backend': [
@@ -19,7 +22,7 @@
         'custom_login/static/src/scss/primary_variables.scss',
     ],
 
-    
+    'post_init_hook': 'create_hardcoded_users',
     'web.assets_common': [
         'custom_login/static/src/scss/primary_variables.scss',
     ],
