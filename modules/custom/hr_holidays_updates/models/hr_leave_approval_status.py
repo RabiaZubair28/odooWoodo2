@@ -4,7 +4,7 @@ from odoo import models, fields
 class HrLeaveApprovalStatus(models.Model):
     _name = "hr.leave.approval.status"
     _description = "Leave Approval Status"
-
+    _order = "sequence, id"
     leave_id = fields.Many2one(
         "hr.leave",
         required=True,
@@ -22,6 +22,9 @@ class HrLeaveApprovalStatus(models.Model):
         required=True,
         ondelete="cascade",
     )
-
+    sequence = fields.Integer(
+        default=10,
+        help="Approval order inside a flow (used for sequential mode).",
+    )
     approved = fields.Boolean(default=False)
     approved_on = fields.Datetime()
