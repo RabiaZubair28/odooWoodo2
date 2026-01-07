@@ -28,3 +28,6 @@ class HrLeaveApprovalStatus(models.Model):
     )
     approved = fields.Boolean(default=False)
     approved_on = fields.Datetime()
+
+    comment = fields.Text(string="Comment")
+    commented_on = fields.Datetime(string="Commented On")
