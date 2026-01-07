@@ -26,6 +26,7 @@
         "views/hrmis_profile_request_templates.xml",
         "views/hr_leave_approval_flow_views.xml",
         "views/hr_leave_views.xml",
+        "views/hr_leave_approval_wizard_views.xml",
         'views/hr_leave_type_views.xml',
     ],
     'assets': {

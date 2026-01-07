@@ -674,6 +674,7 @@
                                 <a class="hrmis-btn hrmis-btn--outline" t-att-href="'/hrmis/leave/%s' % lv.id">View</a>
                                 <form t-att-action="'/hrmis/leave/%s/forward' % lv.id" method="post">
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input class="hrmis-input" type="text" name="comment" placeholder="Optional comment..."/>
                                     <button class="hrmis-btn hrmis-btn--primary" type="submit">Forward</button>
                                 </form>
                             </div>
@@ -697,6 +698,29 @@
                         <div class="hrmis-kv__row"><div class="hrmis-kv__k">Dates</div><div class="hrmis-kv__v"><t t-esc="leave.request_date_from"/> to <t t-esc="leave.request_date_to"/></div></div>
                         <div class="hrmis-kv__row"><div class="hrmis-kv__k">Remarks</div><div class="hrmis-kv__v"><t t-esc="leave.name"/></div></div>
                         <div class="hrmis-kv__row"><div class="hrmis-kv__k">State</div><div class="hrmis-kv__v"><t t-esc="leave.state"/></div></div>
+                        <div class="hrmis-panel" style="margin-top: 16px;">
+                        <div class="hrmis-panel__header">
+                            <div class="hrmis-panel__title">Approval comments</div>
+                        </div>
+                        <div class="hrmis-panel__body">
+                            <t t-set="comments" t-value="leave.approval_status_ids.filtered(lambda s: s.comment)"/>
+                            <t t-if="comments">
+                                <t t-foreach="comments" t-as="st">
+                                    <div class="hrmis-result" style="align-items: flex-start;">
+                                        <div class="hrmis-result__meta">
+                                            <div class="hrmis-result__name">
+                                                <t t-esc="st.user_id.name"/> <t t-if="st.commented_on">— <t t-esc="st.commented_on"/></t>
+                                            </div>
+                                            <div class="hrmis-result__sub"><t t-esc="st.comment"/></div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </t>
+                            <t t-else="">
+                                <div class="hrmis-empty">No comments yet.</div>
+                            </t>
+                        </div>
+                    </div>
                     </div>
                     <div class="hrmis-form__actions">
                         <a class="hrmis-btn hrmis-btn--outline" href="/hrmis/leave/requests">Back</a>
@@ -746,6 +770,7 @@
                                     <a class="hrmis-btn hrmis-btn--outline" t-att-href="'/hrmis/leave/%s' % lv.id">View</a>
                                     <form t-att-action="'/hrmis/leave/%s/approve' % lv.id" method="post">
                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <input class="hrmis-input" type="text" name="comment" placeholder="Optional comment..."/>
                                         <button class="hrmis-btn hrmis-btn--primary" type="submit">Approve</button>
                                     </form>
                                 </div>

@@ -6,3 +6,5 @@ access_leave_approval_flow_user,leave.approval.flow user,model_hr_leave_approval
 access_leave_approval_flow_line,leave.approval.flow.line,model_hr_leave_approval_flow_line,hr.group_hr_manager,1,1,1,1
 access_leave_approval_flow_line_user,leave.approval.flow.line user,model_hr_leave_approval_flow_line,base.group_user,1,0,0,0
 access_leave_approval_status_user,leave.approval.status user,model_hr_leave_approval_status,base.group_user,1,0,0,0
+
+access_hr_leave_approval_wizard_user,leave.approval.wizard user,model_hr_leave_approval_wizard,base.group_user,1,1,1,0

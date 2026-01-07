@@ -796,12 +796,21 @@ class HrmisLeaveFrontendController(http.Controller):
         if not _leave_pending_for_current_user(leave):
             return request.redirect("/hrmis/manage/requests?tab=leave&error=not_allowed")
 
+        comment = (post.get("comment") or "").strip()
+
         try:
             # OpenHRMS multi-level approval overrides action_approve and only allows it from "confirm".
             if leave.state == "validate1" and hasattr(leave.with_user(request.env.user), "action_validate"):
+                # Best-effort: persist comment on the validator line (if available) and in chatter.
+                if comment and hasattr(leave, "validation_status_ids"):
+                    st = leave.validation_status_ids.filtered(lambda s: s.user_id.id == request.env.user.id)[:1]
+                    if st:
+                        st.sudo().write({"leave_comments": comment})
+                    leave.message_post(body=f"Approval comment by {request.env.user.name}:<br/>{comment}")
                 leave.with_user(request.env.user).action_validate()
             else:
-                leave.with_user(request.env.user).action_approve()
+                # Use our custom sequential approval, capturing optional comment.
+                leave.with_user(request.env.user).action_approve_by_user(comment=comment or None)
         except Exception:
             return request.redirect("/hrmis/manage/requests?tab=leave&error=approve_failed")
 

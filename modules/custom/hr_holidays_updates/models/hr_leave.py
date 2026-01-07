@@ -690,6 +690,21 @@ class HrLeave(models.Model):
                         "sequence": idx * 10,
                     })
 
+    def _ensure_custom_approval_initialized(self):
+        """
+        Ensure our custom approval statuses exist for this leave.
+        This is called on-demand from approval entrypoints, because some flows
+        (website/HRMIS routes) may bypass parts of the backend UI and we still
+        want the approval_status_ids list + comments to work.
+        """
+        for leave in self:
+            if leave.state != "confirm" or not leave.holiday_status_id:
+                continue
+            if leave.approval_status_ids:
+                continue
+            # Build status rows with sudo (validators can be any users).
+            leave.sudo()._init_approval_flow()
+
     def _pending_statuses_for_flow(self, flow):
         self.ensure_one()
         return self.approval_status_ids.filtered(lambda s: s.flow_id == flow and not s.approved).sorted(
@@ -723,7 +738,7 @@ class HrLeave(models.Model):
     # ----------------------------
     # APPROVE ACTION
     # ----------------------------
-    def action_approve_by_user(self):
+    def action_approve_by_user(self, comment=None):
         """
         Approve using the custom flow engine.
 
@@ -738,6 +753,10 @@ class HrLeave(models.Model):
 
             if leave.state == "validate":
                 raise UserError("This leave request is already approved.")
+
+            # Make sure the custom flow/status rows exist so the approval status
+            # table and comment history work reliably.
+            leave._ensure_custom_approval_initialized()
 
             # If no custom flow is configured for this leave type, fall back to
             # the standard Odoo approve behavior.
@@ -771,7 +790,14 @@ class HrLeave(models.Model):
                 raise UserError("You are not authorized to approve this request at this stage.")
 
             # Mark approved (use sudo so validators can be arbitrary users).
-            to_approve.sudo().write({"approved": True, "approved_on": now})
+            vals = {"approved": True, "approved_on": now}
+            if comment:
+                vals.update({"comment": comment, "commented_on": now})
+            
+            to_approve.sudo().write(vals)
+
+            if comment:
+                leave.message_post(body=f"Approval comment by {user.name}:<br/>{comment}")
 
             # Check if the whole current step is completed.
             for flow in current_flows:
@@ -789,6 +815,25 @@ class HrLeave(models.Model):
 
         return True
 
+    def action_open_approval_wizard(self):
+        """
+        Open a small wizard so the approver can optionally add a comment before approving.
+        """
+        self.ensure_one()
+        self._ensure_custom_approval_initialized()
+        if self.state != "confirm" or not self.is_pending_for_user(self.env.user):
+            raise UserError("You are not authorized to approve this request at this stage.")
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Approve Leave",
+            "res_model": "hr.leave.approval.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_leave_id": self.id,
+            },
+        }
 
     def action_approve(self):
         """
