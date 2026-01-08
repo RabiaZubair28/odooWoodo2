@@ -482,7 +482,7 @@
 
     <template id="hrmis_leave_form" name="HRMIS Leave Form">
         <t t-call="hr_holidays_updates.hrmis_ui_layout">
-            <div class="hrmis-split">
+            <div class="hrmis-split hrmis-split--leave-request">
                
 
                 <div class="hrmis-panel">
@@ -509,6 +509,7 @@
                                   t-att-action="'/hrmis/staff/%s/leave/submit' % employee.id"
                                   t-att-data-employee-id="employee.id"
                                   t-att-data-leave-types-url="'/hrmis/api/leave/types'"
+                                  t-att-data-leave-approvers-url="'/hrmis/api/leave/approvers'"
                                   method="post"
                                   enctype="multipart/form-data">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -627,6 +628,19 @@
                                 </t>
                             </div>
                         </t>
+                    </div>
+                </div>
+                <!-- Right-side panel: approval chain preview (updates on leave type change) -->
+                <div class="hrmis-panel hrmis-approver-panel js-hrmis-approver-panel" t-if="tab == 'new'">
+                    <div class="hrmis-panel__header">
+                        <div class="hrmis-panel__title" style="font-size: 22px;">Approval chain</div>
+                    </div>
+                    <div class="hrmis-panel__body">
+                        <div class="hrmis-help">
+                            Select a leave type to see who will approve your request and whether approvals are sequential or parallel.
+                        </div>
+                        <div class="hrmis-empty js-hrmis-approver-empty">No approvers configured for the selected leave type.</div>
+                        <div class="hrmis-approver-steps js-hrmis-approver-steps" style="display:none;"></div>
                     </div>
                 </div>
             </div>

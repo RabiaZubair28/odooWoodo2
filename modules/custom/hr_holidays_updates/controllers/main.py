@@ -607,6 +607,106 @@ class HrmisLeaveFrontendController(http.Controller):
         )
 
     @http.route(
+        ["/hrmis/api/leave/approvers"],
+        type="http",
+        auth="user",
+        website=True,
+        methods=["GET"],
+        csrf=False,
+    )
+    def hrmis_api_leave_approvers(self, **kw):
+        """
+        Return the configured approval chain for a leave type so the custom UI
+        can show the approvers list immediately when a leave type is selected.
+        """
+        employee_id = _safe_int(kw.get("employee_id"))
+        leave_type_id = _safe_int(kw.get("leave_type_id"))
+
+        employee = request.env["hr.employee"].sudo().browse(employee_id).exists()
+        if not employee or not _can_manage_employee_leave(employee):
+            payload = {"ok": False, "error": "not_allowed", "steps": []}
+            return request.make_response(json.dumps(payload), headers=[("Content-Type", "application/json")])
+
+        lt = request.env["hr.leave.type"].sudo().browse(leave_type_id).exists()
+        if not lt:
+            payload = {"ok": False, "error": "invalid_leave_type", "steps": []}
+            return request.make_response(json.dumps(payload), headers=[("Content-Type", "application/json")])
+
+        # Prefer explicit custom flows when configured.
+        Flow = request.env["hr.leave.approval.flow"].sudo()
+        flows = Flow.search([("leave_type_id", "=", lt.id)], order="sequence")
+
+        def _user_info(user):
+            info = {
+                "user_id": user.id,
+                "name": user.name,
+                "job_title": "",
+                "department": "",
+            }
+            # Best-effort: enrich with employee info when available
+            emp = getattr(user, "employee_id", False)
+            if emp:
+                info["job_title"] = (getattr(emp, "job_title", False) or (getattr(emp, "job_id", False) and emp.job_id.name) or "") or ""
+                info["department"] = (getattr(emp, "department_id", False) and emp.department_id.name) or ""
+            return info
+
+        steps = []
+        if flows:
+            for flow in flows:
+                approvers = []
+                if getattr(flow, "approver_line_ids", False):
+                    ordered = flow.approver_line_ids.sorted(lambda l: (l.sequence, l.id))
+                    for line in ordered:
+                        u = line.user_id
+                        if not u:
+                            continue
+                        approvers.append(
+                            {
+                                "sequence": line.sequence,
+                                "sequence_type": line.sequence_type or (flow.mode or "sequential"),
+                                **_user_info(u),
+                            }
+                        )
+                else:
+                    # Legacy fallback on the flow itself
+                    for idx, u in enumerate((flow.approver_ids or request.env["res.users"]).sorted(lambda r: r.id), start=1):
+                        approvers.append(
+                            {
+                                "sequence": idx * 10,
+                                "sequence_type": flow.mode or "sequential",
+                                **_user_info(u),
+                            }
+                        )
+                if approvers:
+                    steps.append({"step": flow.sequence, "approvers": approvers})
+
+        # If no flows are configured, use the leave-type validators list (OpenHRMS).
+        if not steps and getattr(lt, "leave_validation_type", False) == "multi" and getattr(lt, "validator_ids", False):
+            validators = lt.validator_ids.sorted(lambda v: (getattr(v, "sequence", 10), v.id))
+            approvers = []
+            for v in validators:
+                u = getattr(v, "user_id", False)
+                if not u:
+                    continue
+                approvers.append(
+                    {
+                        "sequence": getattr(v, "sequence", 10),
+                        "sequence_type": getattr(v, "sequence_type", False) or "sequential",
+                        "action_type": getattr(v, "action_type", False) or "approve",
+                        **_user_info(u),
+                    }
+                )
+            if approvers:
+                steps.append({"step": 1, "approvers": approvers})
+
+        payload = {
+            "ok": True,
+            "leave_type": {"id": lt.id, "name": lt.name},
+            "steps": steps,
+        }
+        return request.make_response(json.dumps(payload), headers=[("Content-Type", "application/json")])
+
+    @http.route(
         ["/hrmis/staff/<int:employee_id>/leave/submit"],
         type="http",
         auth="user",
