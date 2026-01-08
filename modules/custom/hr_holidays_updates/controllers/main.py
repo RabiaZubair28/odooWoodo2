@@ -203,13 +203,24 @@ def _allocation_pending_for_current_user(allocation) -> bool:
 def _pending_allocation_requests_for_user(user_id: int):
     """
     Best-effort: pending allocations that likely need current user's action.
-    We do NOT have the multi-level validator list for allocations in this codebase,
-    so we approximate with standard "manager/hr" logic.
+    In this deployment, leave types can be configured with multi-level validators
+    (`holiday_status_id.validator_ids`). Users expect those validators to approve
+    *allocations* as well (not only leave requests), so include that routing here.
     """
     Allocation = request.env["hr.leave.allocation"].sudo()
+    LeaveType = request.env["hr.leave.type"].sudo()
 
     domains = []
     has_validation_status_ids = "validation_status_ids" in Allocation._fields
+
+    # Leave-type validators (OpenHRMS): treat configured validators as allocation approvers too.
+    # This is the missing piece that causes "allocated to 4 approvers but nobody sees it".
+    if "validator_ids" in LeaveType._fields:
+        lt_domain = [("holiday_status_id.validator_ids.user_id", "=", user_id)]
+        # If the leave type supports explicit validation mode, restrict to multi-level.
+        if "leave_validation_type" in LeaveType._fields:
+            lt_domain.append(("holiday_status_id.leave_validation_type", "=", "multi"))
+        domains.append([("state", "in", ("confirm", "validate1"))] + lt_domain)
 
     # OpenHRMS-style multi-level approval: show only allocations where current user
     # is a validator and has NOT yet approved.
@@ -981,10 +992,15 @@ class HrmisLeaveFrontendController(http.Controller):
         if not alloc:
             return request.not_found()
 
-        # Keep website exposure conservative: non-HR users can only view allocations
-        # for direct reports.
+        # Website exposure: allow HR users, direct managers, and configured allocation validators.
         if not _can_manage_allocations():
-            if not (alloc.employee_id and alloc.employee_id.parent_id and alloc.employee_id.parent_id.user_id.id == request.env.user.id):
+            is_manager = bool(
+                alloc.employee_id
+                and alloc.employee_id.parent_id
+                and alloc.employee_id.parent_id.user_id.id == request.env.user.id
+            )
+            is_pending_validator = _allocation_pending_for_current_user(alloc)
+            if not (is_manager or is_pending_validator):
                 return request.redirect("/hrmis/manage/requests?tab=allocation&error=not_allowed")
 
         return request.render(
@@ -1010,10 +1026,12 @@ class HrmisLeaveFrontendController(http.Controller):
 
         try:
             # Odoo versions differ: try common approval methods.
-            if hasattr(alloc.with_user(request.env.user), "action_approve"):
-                alloc.with_user(request.env.user).action_approve()
-            elif hasattr(alloc.with_user(request.env.user), "action_validate"):
-                alloc.with_user(request.env.user).action_validate()
+            # Use sudo(user) so non-HR validators can approve without broad HR rights,
+            # but keep env.user as the acting approver (audit/chatter consistency).
+            if hasattr(alloc, "action_approve"):
+                alloc.sudo(request.env.user).action_approve()
+            elif hasattr(alloc, "action_validate"):
+                alloc.sudo(request.env.user).action_validate()
             else:
                 # As a last resort, attempt to push to validated state (not ideal, but avoids dead UI).
                 alloc.sudo().write({"state": "validate"})
@@ -1039,10 +1057,10 @@ class HrmisLeaveFrontendController(http.Controller):
             return request.redirect("/hrmis/manage/requests?tab=allocation&error=not_allowed")
 
         try:
-            if hasattr(alloc.with_user(request.env.user), "action_refuse"):
-                alloc.with_user(request.env.user).action_refuse()
-            elif hasattr(alloc.with_user(request.env.user), "action_reject"):
-                alloc.with_user(request.env.user).action_reject()
+            if hasattr(alloc, "action_refuse"):
+                alloc.sudo(request.env.user).action_refuse()
+            elif hasattr(alloc, "action_reject"):
+                alloc.sudo(request.env.user).action_reject()
             else:
                 alloc.sudo().write({"state": "refuse"})
         except Exception:
