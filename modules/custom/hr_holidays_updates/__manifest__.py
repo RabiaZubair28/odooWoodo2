@@ -11,9 +11,9 @@
         'hr_holidays',
         'hrmis_user_profiles_updates',
         'ohrms_holidays_approval',
+        'hr_holidays_multilevel_hierarchy',
     ],  # Important: extend the built-in module
     'data': [
-        'security/ir.model.access.csv',
         'data/leave_type_data.xml',
         'data/support_document_rules.xml',
         'data/auto_allocation_cron.xml',
@@ -23,11 +23,7 @@
         "views/hrmis_profile_request_views.xml",
         "views/hrmis_profile_approvals.xml",
         "views/hrmis_profile_request_templates.xml",
-        "views/hr_leave_approval_flow_views.xml",
-        "views/hr_leave_views.xml",
-        "views/hr_leave_approval_wizard_views.xml",
         'views/hr_leave_type_views.xml',
-        'views/hr_holidays_updates_security.xml',
     ],
     'assets': {
         'web.assets_frontend': [
