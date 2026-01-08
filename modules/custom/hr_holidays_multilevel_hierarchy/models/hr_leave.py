@@ -79,7 +79,6 @@ class HrLeave(models.Model):
         "holiday_status_id.leave_validation_type",
         "holiday_status_id.validator_ids",
         "holiday_status_id.validator_ids.user_id",
-        "holiday_status_id.validator_ids.sequence",
         "approval_step",
         "approval_status_ids.approved",
         "approval_status_ids.sequence",
