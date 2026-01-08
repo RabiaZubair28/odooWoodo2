@@ -13,9 +13,8 @@
         'ohrms_holidays_approval',
     ],  # Important: extend the built-in module
     'data': [
-        
         'security/ir.model.access.csv',
-        'data/leave_type_data.xml',  # optional
+        'data/leave_type_data.xml',
         'data/support_document_rules.xml',
         'data/auto_allocation_cron.xml',
         'views/hr_holidays_views.xml',
