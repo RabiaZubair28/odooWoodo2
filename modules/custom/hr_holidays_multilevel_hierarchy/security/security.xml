@@ -16,10 +16,10 @@
       ]
     </field>
   </record>
- 
+
   <record id="rule_hr_leave_approval_status_sequential_visibility_any_approver" model="ir.rule">
     <field name="name">Sequential approval: approval status visibility</field>
-    <field name="model_id" ref="hr_holidays_updates.model_hr_leave_approval_status"/>
+    <field name="model_id" ref="hr_holidays_multilevel_hierarchy.model_hr_leave_approval_status"/>
     <field name="domain_force">
       [
         '|',
@@ -34,3 +34,4 @@
     </field>
   </record>
 </odoo>
+

@@ -15,8 +15,11 @@ class HrLeaveApprovalWizard(models.TransientModel):
         if not leave:
             return {"type": "ir.actions.act_window_close"}
 
+        # Only the *current* pending approver(s) can approve.
         if leave.state != "confirm" or not leave.is_pending_for_user(self.env.user):
             raise UserError("You are not authorized to approve this request at this stage.")
+
+        leave.with_user(self.env.user).action_approve_by_user(comment=(self.comment or "").strip() or None)
 
         # After approving, the leave may no longer be readable for this user
         # (by design: only current pending approvers can see it). Redirect back
@@ -24,3 +27,4 @@ class HrLeaveApprovalWizard(models.TransientModel):
         if hasattr(self.env["hr.leave"], "_get_approval_requests"):
             return self.env["hr.leave"]._get_approval_requests()
         return {"type": "ir.actions.act_window_close"}
+

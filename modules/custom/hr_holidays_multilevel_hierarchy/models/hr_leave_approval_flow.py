@@ -12,7 +12,7 @@ class HrLeaveApprovalFlow(models.Model):
     )
 
     sequence = fields.Integer(required=True)
-    
+
     sequence_type = fields.Selection(
         [
             ("sequential", "Sequential"),
@@ -27,7 +27,7 @@ class HrLeaveApprovalFlow(models.Model):
             "- Parallel: this approver and the *next consecutive parallel* approvers are activated together."
         ),
     )
-    
+
     mode = fields.Selection(
         [
             ("sequential", "Sequential"),
@@ -98,3 +98,4 @@ class HrLeaveApprovalFlowLine(models.Model):
     _sql_constraints = [
         ("uniq_flow_user", "unique(flow_id, user_id)", "This approver is already added to the flow."),
     ]
+

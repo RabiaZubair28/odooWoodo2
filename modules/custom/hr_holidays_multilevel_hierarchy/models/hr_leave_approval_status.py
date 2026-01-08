@@ -5,6 +5,7 @@ class HrLeaveApprovalStatus(models.Model):
     _name = "hr.leave.approval.status"
     _description = "Leave Approval Status"
     _order = "sequence, id"
+
     leave_id = fields.Many2one(
         "hr.leave",
         required=True,
@@ -48,3 +49,4 @@ class HrLeaveApprovalStatus(models.Model):
 
     comment = fields.Text(string="Comment")
     commented_on = fields.Datetime(string="Commented On")
+
