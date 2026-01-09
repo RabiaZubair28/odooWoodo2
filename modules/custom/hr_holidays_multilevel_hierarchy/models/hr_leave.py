@@ -92,7 +92,10 @@ class HrLeave(models.Model):
     def _compute_pending_approver_ids(self):
         Flow = self.env["hr.leave.approval.flow"]
         for leave in self:
-            if leave.state != "confirm" or not leave.holiday_status_id:
+            # Some deployments (and merged customizations) use Odoo's 2-step approval
+            # states where "validate1" is still awaiting final approval. Treat it as
+            # pending as well, otherwise the next approver won't see the request.
+            if leave.state not in ("confirm", "validate1") or not leave.holiday_status_id:
                 leave.pending_approver_ids = False
                 continue
 
@@ -161,7 +164,25 @@ class HrLeave(models.Model):
     # INIT FLOW ON SUBMIT
     # ----------------------------
     def action_confirm(self):
-        res = super().action_confirm()
+        # Cross-version compatibility:
+        # Some Odoo builds don't expose `action_confirm()` on `hr.leave` (or another
+        # custom module in the chain may not). Our website/HRMIS flows still call
+        # `action_confirm()` when present, so keep this as a safe alias.
+        parent = super(HrLeave, self)
+        action = getattr(parent, "action_confirm", None)
+        if callable(action):
+            res = action()
+        else:
+            # Try common alternative naming used in some versions/customizations.
+            submit = getattr(parent, "action_submit", None)
+            if callable(submit):
+                res = submit()
+            else:
+                # Last-resort: emulate submit by moving to confirm.
+                # This is intentionally minimal; downstream logic (record rules,
+                # approval initialization) relies primarily on the state value.
+                self.write({"state": "confirm"})
+                res = True
         self._init_approval_flow()
         return res
 
@@ -171,7 +192,7 @@ class HrLeave(models.Model):
 
         # Robustness: if a leave is created directly in confirm state (some
         # portal/API flows do this), ensure status rows exist.
-        confirm_leaves = leaves.filtered(lambda l: l.state == "confirm" and not l.approval_status_ids)
+        confirm_leaves = leaves.filtered(lambda l: l.state in ("confirm", "validate1") and not l.approval_status_ids)
         if confirm_leaves:
             confirm_leaves.sudo()._init_approval_flow()
         return leaves
@@ -180,15 +201,17 @@ class HrLeave(models.Model):
         res = super().write(vals)
         # Robustness: if state is moved to confirm via write (bypassing
         # action_confirm), ensure status rows exist.
-        if vals.get("state") == "confirm":
-            confirm_leaves = self.filtered(lambda l: l.state == "confirm" and not l.approval_status_ids)
+        if vals.get("state") in ("confirm", "validate1"):
+            confirm_leaves = self.filtered(lambda l: l.state in ("confirm", "validate1") and not l.approval_status_ids)
             if confirm_leaves:
                 confirm_leaves.sudo()._init_approval_flow()
         return res
 
     def _init_approval_flow(self):
         for leave in self:
-            leave.approval_status_ids.unlink()
+            # Status rows are internal workflow artifacts. Manage them with sudo so
+            # regular approvers don't need delete rights on hr.leave.approval.status.
+            leave.approval_status_ids.sudo().unlink()
 
             flows = self.env["hr.leave.approval.flow"].search(
                 [("leave_type_id", "=", leave.holiday_status_id.id)],
@@ -269,7 +292,9 @@ class HrLeave(models.Model):
         want the approval_status_ids list + comments to work.
         """
         for leave in self:
-            if leave.state != "confirm" or not leave.holiday_status_id:
+            # Support both the classic pending state ("confirm") and the first-stage
+            # approved-but-not-final state ("validate1") used by some manager flows.
+            if leave.state not in ("confirm", "validate1") or not leave.holiday_status_id:
                 continue
             if leave.approval_status_ids:
                 continue
@@ -415,7 +440,7 @@ class HrLeave(models.Model):
         """
         self.ensure_one()
         self._ensure_custom_approval_initialized()
-        if self.state != "confirm" or not self.is_pending_for_user(self.env.user):
+        if self.state not in ("confirm", "validate1") or not self.is_pending_for_user(self.env.user):
             raise UserError("You are not authorized to approve this request at this stage.")
 
         return {
@@ -451,7 +476,7 @@ class HrLeave(models.Model):
             ]
         )
         leaves = pending_statuses.mapped("leave_id").filtered(
-            lambda l: l.state == "confirm" and l.is_pending_for_user(self.env.user)
+            lambda l: l.state in ("confirm", "validate1") and l.is_pending_for_user(self.env.user)
         )
 
         return {
