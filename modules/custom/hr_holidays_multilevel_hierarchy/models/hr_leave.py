@@ -164,7 +164,25 @@ class HrLeave(models.Model):
     # INIT FLOW ON SUBMIT
     # ----------------------------
     def action_confirm(self):
-        res = super().action_confirm()
+        # Cross-version compatibility:
+        # Some Odoo builds don't expose `action_confirm()` on `hr.leave` (or another
+        # custom module in the chain may not). Our website/HRMIS flows still call
+        # `action_confirm()` when present, so keep this as a safe alias.
+        parent = super(HrLeave, self)
+        action = getattr(parent, "action_confirm", None)
+        if callable(action):
+            res = action()
+        else:
+            # Try common alternative naming used in some versions/customizations.
+            submit = getattr(parent, "action_submit", None)
+            if callable(submit):
+                res = submit()
+            else:
+                # Last-resort: emulate submit by moving to confirm.
+                # This is intentionally minimal; downstream logic (record rules,
+                # approval initialization) relies primarily on the state value.
+                self.write({"state": "confirm"})
+                res = True
         self._init_approval_flow()
         return res
 
