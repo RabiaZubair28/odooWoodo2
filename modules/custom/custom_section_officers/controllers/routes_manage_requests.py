@@ -119,13 +119,18 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
         if not lv:
             return request.not_found()
 
-        # Section officers should only see requests for employees they manage,
-        # unless they are HR (who can access via other menus anyway).
-        if not (
+        # Section officers can view:
+        # - requests pending their action (multi-level approver logic), OR
+        # - requests for employees they manage (legacy manager-based logic), OR
+        # - HR users can view as usual.
+        is_hr = bool(
             request.env.user.has_group("hr_holidays.group_hr_holidays_user")
             or request.env.user.has_group("hr_holidays.group_hr_holidays_manager")
-        ):
-            if not self._is_record_managed_by_current_user(lv):
+        )
+        if not is_hr:
+            is_pending_for_me = leave_pending_for_current_user(lv)
+            is_managed = self._is_record_managed_by_current_user(lv)
+            if not (is_pending_for_me or is_managed):
                 return request.redirect("/hrmis/manage/requests?tab=leave&error=not_allowed")
 
         return request.render(
@@ -146,12 +151,16 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
         if not lv:
             return request.not_found()
 
-        # For SO Manage Requests, allow only managed employees.
-        if not self._is_record_managed_by_current_user(lv):
+        # Allow approval only when it's pending for the current user.
+        # This matches the custom multi-level approval engine (pending_approver_ids).
+        if not leave_pending_for_current_user(lv):
             return request.redirect("/hrmis/manage/requests?tab=leave&error=not_allowed")
 
         try:
-            if hasattr(lv.with_user(request.env.user), "action_approve"):
+            comment = (post.get("comment") or "").strip()
+            if hasattr(lv.with_user(request.env.user), "action_approve_by_user"):
+                lv.with_user(request.env.user).action_approve_by_user(comment=comment or None)
+            elif hasattr(lv.with_user(request.env.user), "action_approve"):
                 lv.with_user(request.env.user).action_approve()
             elif hasattr(lv.with_user(request.env.user), "action_validate"):
                 lv.with_user(request.env.user).action_validate()
@@ -175,8 +184,8 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
         if not lv:
             return request.not_found()
 
-        # For SO Manage Requests, allow only managed employees.
-        if not self._is_record_managed_by_current_user(lv):
+        # Allow dismiss only when it's pending for the current user.
+        if not leave_pending_for_current_user(lv):
             return request.redirect("/hrmis/manage/requests?tab=leave&error=not_allowed")
 
         # Some deployments/templates may trigger a GET navigation to this URL.
@@ -212,30 +221,10 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
 
     @http.route(["/hrmis/manage/requests"], type="http", auth="user", website=True)
     def hrmis_manage_requests(self, tab: str = "leave", **kw):
-        # Show only pending requests for employees managed by this section officer.
-        Leave = request.env["hr.leave"].sudo()
-        Allocation = request.env["hr.leave.allocation"].sudo()
-
-        managed_emp_ids = self._managed_employee_ids()
-        if not managed_emp_ids:
-            leaves = Leave.browse([])
-            allocations = Allocation.browse([])
-            tab = tab if tab in ("leave", "allocation") else "leave"
-            return request.render(
-                "custom_section_officers.hrmis_manage_requests",
-                base_ctx("Manage Requests", "manage_requests", tab=tab, leaves=leaves, allocations=allocations),
-            )
-
-        leaves = Leave.search(
-            [("state", "in", ("confirm", "validate1")), ("employee_id", "in", managed_emp_ids)],
-            order="create_date desc, id desc",
-            limit=200,
-        )
-        allocations = Allocation.search(
-            [("state", "in", ("confirm", "validate1")), ("employee_id", "in", managed_emp_ids)],
-            order="create_date desc, id desc",
-            limit=200,
-        )
+        # Show requests pending the current user's action (multi-level + manager fallbacks).
+        uid = request.env.user.id
+        leaves = pending_leave_requests_for_user(uid)
+        allocations = pending_allocation_requests_for_user(uid)
         tab = tab if tab in ("leave", "allocation") else "leave"
         return request.render(
             "custom_section_officers.hrmis_manage_requests",
@@ -249,7 +238,9 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
             return request.not_found()
 
         if not can_manage_allocations():
-            if not self._is_record_managed_by_current_user(alloc):
+            is_pending_for_me = allocation_pending_for_current_user(alloc)
+            is_managed = self._is_record_managed_by_current_user(alloc)
+            if not (is_pending_for_me or is_managed):
                 return request.redirect("/hrmis/manage/requests?tab=allocation&error=not_allowed")
 
         return request.render(
@@ -270,15 +261,15 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
         if not alloc:
             return request.not_found()
 
-        # For SO Manage Requests, allow only managed employees (HR can still manage all allocations).
-        if not (self._is_record_managed_by_current_user(alloc) or can_manage_allocations()):
+        # Allow approval only when it's pending for the current user.
+        if not allocation_pending_for_current_user(alloc):
             return request.redirect("/hrmis/manage/requests?tab=allocation&error=not_allowed")
 
         try:
-            if hasattr(alloc.with_user(request.env.user), "action_approve"):
-                alloc.with_user(request.env.user).action_approve()
-            elif hasattr(alloc.with_user(request.env.user), "action_validate"):
-                alloc.with_user(request.env.user).action_validate()
+            if hasattr(alloc, "action_approve"):
+                alloc.sudo(request.env.user).action_approve()
+            elif hasattr(alloc, "action_validate"):
+                alloc.sudo(request.env.user).action_validate()
             else:
                 alloc.sudo().write({"state": "validate"})
         except Exception:
@@ -299,15 +290,15 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
         if not alloc:
             return request.not_found()
 
-        # For SO Manage Requests, allow only managed employees (HR can still manage all allocations).
-        if not (self._is_record_managed_by_current_user(alloc) or can_manage_allocations()):
+        # Allow refusal only when it's pending for the current user.
+        if not allocation_pending_for_current_user(alloc):
             return request.redirect("/hrmis/manage/requests?tab=allocation&error=not_allowed")
 
         try:
-            if hasattr(alloc.with_user(request.env.user), "action_refuse"):
-                alloc.with_user(request.env.user).action_refuse()
-            elif hasattr(alloc.with_user(request.env.user), "action_reject"):
-                alloc.with_user(request.env.user).action_reject()
+            if hasattr(alloc, "action_refuse"):
+                alloc.sudo(request.env.user).action_refuse()
+            elif hasattr(alloc, "action_reject"):
+                alloc.sudo(request.env.user).action_reject()
             else:
                 alloc.sudo().write({"state": "refuse"})
         except Exception:
@@ -344,7 +335,7 @@ class HrmisSectionOfficerManageRequestsController(http.Controller):
 
         try:
             # Standard hr.leave.allocation does not have a "dismissed" state; use refusal.
-            rec = alloc.with_user(request.env.user)
+            rec = alloc.sudo(request.env.user)
             if hasattr(rec, "action_refuse"):
                 rec.action_refuse()
             elif hasattr(rec, "action_reject"):
