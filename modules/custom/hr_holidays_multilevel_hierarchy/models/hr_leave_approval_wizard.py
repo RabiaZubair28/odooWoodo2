@@ -16,7 +16,8 @@ class HrLeaveApprovalWizard(models.TransientModel):
             return {"type": "ir.actions.act_window_close"}
 
         # Only the *current* pending approver(s) can approve.
-        if leave.state != "confirm" or not leave.is_pending_for_user(self.env.user):
+        # Some deployments use 'validate1' as an intermediate pending state.
+        if leave.state not in ("confirm", "validate1") or not leave.is_pending_for_user(self.env.user):
             raise UserError("You are not authorized to approve this request at this stage.")
 
         leave.with_user(self.env.user).action_approve_by_user(comment=(self.comment or "").strip() or None)

@@ -134,7 +134,8 @@ def _pending_leave_requests_for_user(user_id: int):
     # Prefer the custom sequential/parallel visibility engine when available.
     # This ensures only the *current* pending approver(s) see the request.
     if "pending_approver_ids" in Leave._fields:
-        domains.append([("state", "=", "confirm"), ("pending_approver_ids", "in", [user_id])])
+        # Some deployments use 'validate1' as an intermediate "still pending final approval" state.
+        domains.append([("state", "in", ("confirm", "validate1")), ("pending_approver_ids", "in", [user_id])])
     # OpenHRMS multi-level approval: show only requests where current user is a validator
     # and has NOT yet approved.
     if "validation_status_ids" in Leave._fields and "pending_approver_ids" not in Leave._fields:
