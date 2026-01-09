@@ -6,7 +6,7 @@
     <field name="domain_force">
       [
         '|',
-        ('state', '!=', 'confirm'),
+        ('state', 'not in', ('confirm', 'validate1')),
         '|','|',
           ('employee_id.user_id', '=', user.id),
           ('create_uid', '=', user.id),
@@ -23,7 +23,7 @@
     <field name="domain_force">
       [
         '|',
-        ('leave_id.state', '!=', 'confirm'),
+        ('leave_id.state', 'not in', ('confirm', 'validate1')),
         '|','|',
           ('leave_id.employee_id.user_id', '=', user.id),
           ('leave_id.create_uid', '=', user.id),
