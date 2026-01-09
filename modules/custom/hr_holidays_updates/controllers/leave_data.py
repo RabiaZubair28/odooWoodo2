@@ -11,16 +11,25 @@ def pending_leave_requests_for_user(user_id: int):
 
     domains = []
 
-    # Custom approval flow (hr_holidays_updates): safe superset, then filter by step.
-    has_custom_flow = "approval_status_ids" in Leave._fields and "approval_step" in Leave._fields
-    if has_custom_flow:
-        domains.append(
-            [
-                ("state", "in", ("confirm", "validate1")),
-                ("approval_status_ids.user_id", "=", user_id),
-                ("approval_status_ids.approved", "=", False),
-            ]
-        )
+    # Custom approval flow (hr_holidays_multilevel_hierarchy):
+    # Use the stored `pending_approver_ids` M2M as the source of truth for
+    # "pending my action". This is more reliable than domains on the O2M
+    # approval_status_ids (which can behave inconsistently across versions).
+    if "pending_approver_ids" in Leave._fields:
+        domains.append([("state", "in", ("confirm", "validate1")), ("pending_approver_ids", "in", [user_id])])
+        has_custom_flow = True
+    else:
+        has_custom_flow = "approval_status_ids" in Leave._fields and "approval_step" in Leave._fields
+        if has_custom_flow:
+            # Fallback for older builds without pending_approver_ids:
+            # safe superset, then filter by step below.
+            domains.append(
+                [
+                    ("state", "in", ("confirm", "validate1")),
+                    ("approval_status_ids.user_id", "=", user_id),
+                    ("approval_status_ids.approved", "=", False),
+                ]
+            )
 
     # OpenHRMS multi-level approval: show only requests where current user is a validator
     # and has NOT yet approved.
@@ -58,7 +67,9 @@ def pending_leave_requests_for_user(user_id: int):
             domain = ["|"] + domain + extra
         leaves = Leave.search(domain, order="request_date_from desc, id desc", limit=200)
 
-    if has_custom_flow and hasattr(leaves, "is_pending_for_user"):
+    # If we had to fall back to the approval_status_ids superset, narrow it down
+    # to only the *current* pending approver(s).
+    if "pending_approver_ids" not in Leave._fields and has_custom_flow and hasattr(leaves, "is_pending_for_user"):
         leaves = leaves.filtered(lambda lv: lv.is_pending_for_user(request.env.user))
     return leaves
 
