@@ -209,7 +209,9 @@ class HrLeave(models.Model):
 
     def _init_approval_flow(self):
         for leave in self:
-            leave.approval_status_ids.unlink()
+            # Status rows are internal workflow artifacts. Manage them with sudo so
+            # regular approvers don't need delete rights on hr.leave.approval.status.
+            leave.approval_status_ids.sudo().unlink()
 
             flows = self.env["hr.leave.approval.flow"].search(
                 [("leave_type_id", "=", leave.holiday_status_id.id)],
